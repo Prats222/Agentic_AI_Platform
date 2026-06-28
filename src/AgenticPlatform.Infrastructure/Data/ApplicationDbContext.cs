@@ -1,0 +1,39 @@
+using AgenticPlatform.Core.Entities;
+using AgenticPlatform.Infrastructure.Data.Seed;
+using AgenticPlatform.Infrastructure.Identity;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
+
+namespace AgenticPlatform.Infrastructure.Data;
+
+public sealed class ApplicationDbContext : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>
+{
+    public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
+        : base(options)
+    {
+    }
+
+    public DbSet<Agent> Agents => Set<Agent>();
+    public DbSet<Workflow> Workflows => Set<Workflow>();
+    public DbSet<WorkflowStep> WorkflowSteps => Set<WorkflowStep>();
+    public DbSet<Tool> Tools => Set<Tool>();
+    public DbSet<Execution> Executions => Set<Execution>();
+    public DbSet<ExecutionLog> ExecutionLogs => Set<ExecutionLog>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+
+    protected override void OnModelCreating(ModelBuilder builder)
+    {
+        base.OnModelCreating(builder);
+
+        builder.Entity<ApplicationUser>(entity =>
+        {
+            entity.Property(user => user.DisplayName)
+                .HasMaxLength(150)
+                .IsRequired();
+        });
+
+        builder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
+        IdentitySeed.Seed(builder);
+    }
+}

@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AgenticPlatform.API/AgenticPlatform.API.csproj" />
+    <Project Path="src/AgenticPlatform.Core/AgenticPlatform.Core.csproj" />
+    <Project Path="src/AgenticPlatform.Infrastructure/AgenticPlatform.Infrastructure.csproj" />
+  </Folder>
+</Solution>
