@@ -115,7 +115,9 @@ public sealed class WorkflowsController : ControllerBase
         UpdateWorkflowDto request,
         CancellationToken cancellationToken)
     {
-        var workflow = await _unitOfWork.Workflows.GetByIdAsync(id, cancellationToken);
+        var workflow = await _unitOfWork.Workflows.Query()
+            .Include(item => item.Agents)
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
         if (workflow is null)
         {
             return NotFound(ApiResponse<WorkflowDto>.Fail("Workflow was not found."));
@@ -149,8 +151,38 @@ public sealed class WorkflowsController : ControllerBase
             return NotFound(ApiResponse<object>.Fail("Workflow was not found."));
         }
 
+        var steps = await _unitOfWork.Repository<WorkflowStep>()
+            .Query()
+            .Where(step => step.WorkflowId == id)
+            .ToListAsync(cancellationToken);
+
+        var executions = await _unitOfWork.Repository<Execution>()
+            .Query()
+            .Where(execution => execution.WorkflowId == id)
+            .ToListAsync(cancellationToken);
+
+        var executionIds = executions.Select(execution => execution.Id).ToArray();
+        var executionLogs = executionIds.Length == 0
+            ? new List<ExecutionLog>()
+            : await _unitOfWork.Repository<ExecutionLog>()
+                .Query()
+                .Where(log => executionIds.Contains(log.ExecutionId))
+                .ToListAsync(cancellationToken);
+
+        _unitOfWork.Repository<ExecutionLog>().RemoveRange(executionLogs);
+        _unitOfWork.Repository<Execution>().RemoveRange(executions);
+        _unitOfWork.Repository<WorkflowStep>().RemoveRange(steps);
+        workflow.Agents.Clear();
         _unitOfWork.Workflows.Remove(workflow);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            return Conflict(ApiResponse<object>.Fail("Workflow cannot be deleted because it is still referenced by related records."));
+        }
 
         return NoContent();
     }

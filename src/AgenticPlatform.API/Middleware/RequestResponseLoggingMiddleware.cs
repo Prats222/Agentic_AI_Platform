@@ -32,6 +32,11 @@ public sealed class RequestResponseLoggingMiddleware
                 await _next(context);
             }
         }
+        catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+        {
+            context.Response.Clear();
+            context.Response.StatusCode = 499;
+        }
         finally
         {
             var elapsedMs = (DateTimeOffset.UtcNow - startedAt).TotalMilliseconds;
@@ -47,7 +52,10 @@ public sealed class RequestResponseLoggingMiddleware
                 responseText);
 
             responseBody.Position = 0;
-            await responseBody.CopyToAsync(originalBody);
+            if (!context.RequestAborted.IsCancellationRequested)
+            {
+                await responseBody.CopyToAsync(originalBody);
+            }
             context.Response.Body = originalBody;
         }
     }
@@ -104,7 +112,10 @@ public sealed class RequestResponseLoggingMiddleware
 
     private static bool IsSensitivePath(PathString path)
     {
-        return path.StartsWithSegments("/api/v1/auth", StringComparison.OrdinalIgnoreCase);
+        return path.StartsWithSegments("/api/v1/auth", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWithSegments("/api/v1/ai-settings", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWithSegments("/api/v1/agents", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWithSegments("/api/v1/tools", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string Truncate(string value)

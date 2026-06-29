@@ -25,10 +25,9 @@ public sealed class ExecutionWorker : BackgroundService
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            var executionId = await _executionQueue.DequeueAsync(stoppingToken);
-
             try
             {
+                var executionId = await _executionQueue.DequeueAsync(stoppingToken);
                 using var scope = _serviceScopeFactory.CreateScope();
                 var executionService = scope.ServiceProvider.GetRequiredService<IExecutionService>();
                 await executionService.RunExecutionAsync(executionId, stoppingToken);
@@ -39,7 +38,7 @@ public sealed class ExecutionWorker : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Unhandled error while processing execution {ExecutionId}.", executionId);
+                _logger.LogError(ex, "Unhandled error while processing queued execution.");
             }
         }
     }

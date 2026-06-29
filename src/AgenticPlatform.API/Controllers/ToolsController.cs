@@ -20,11 +20,16 @@ namespace AgenticPlatform.API.Controllers;
 public sealed class ToolsController : ControllerBase
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IToolExecutionService _toolExecutionService;
     private readonly IMapper _mapper;
 
-    public ToolsController(IUnitOfWork unitOfWork, IMapper mapper)
+    public ToolsController(
+        IUnitOfWork unitOfWork,
+        IToolExecutionService toolExecutionService,
+        IMapper mapper)
     {
         _unitOfWork = unitOfWork;
+        _toolExecutionService = toolExecutionService;
         _mapper = mapper;
     }
 
@@ -83,6 +88,43 @@ public sealed class ToolsController : ControllerBase
         }
 
         return Ok(ApiResponse<ToolDto>.Ok(_mapper.Map<ToolDto>(tool)));
+    }
+
+    [HttpPost("{id:guid}/execute")]
+    [Authorize(Roles = $"{ApplicationRoles.Admin},{ApplicationRoles.Developer}")]
+    [ProducesResponseType(typeof(ApiResponse<ToolExecutionResultDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<ToolExecutionResultDto>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<ToolExecutionResultDto>), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<ApiResponse<ToolExecutionResultDto>>> ExecuteTool(
+        Guid id,
+        ExecuteToolDto request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _toolExecutionService.ExecuteAsync(id, request.InputJson, cancellationToken);
+        if (result is null)
+        {
+            return NotFound(ApiResponse<ToolExecutionResultDto>.Fail("Tool was not found."));
+        }
+
+        var dto = new ToolExecutionResultDto
+        {
+            ToolId = result.ToolId,
+            ToolName = result.ToolName,
+            ExecutorName = result.ExecutorName,
+            Succeeded = result.Succeeded,
+            ResultJson = result.ResultJson,
+            ErrorMessage = result.ErrorMessage,
+            StartedAt = result.StartedAt,
+            CompletedAt = result.CompletedAt,
+            DurationMs = result.DurationMs
+        };
+
+        if (!result.Succeeded)
+        {
+            return BadRequest(ApiResponse<ToolExecutionResultDto>.Fail("Tool execution failed.", [result.ErrorMessage ?? "Unknown tool execution error."]));
+        }
+
+        return Ok(ApiResponse<ToolExecutionResultDto>.Ok(dto, "Tool executed successfully."));
     }
 
     [HttpPost]

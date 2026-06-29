@@ -19,6 +19,21 @@ public sealed class AgentConfiguration : IEntityTypeConfiguration<Agent>
         builder.Property(agent => agent.Description)
             .HasMaxLength(1000);
 
+        builder.Property(agent => agent.ProjectName)
+            .HasMaxLength(150);
+
+        builder.Property(agent => agent.Role)
+            .HasMaxLength(150);
+
+        builder.Property(agent => agent.Goal)
+            .HasMaxLength(2000);
+
+        builder.Property(agent => agent.ExpectedOutput)
+            .HasMaxLength(2000);
+
+        builder.Property(agent => agent.Tags)
+            .HasMaxLength(500);
+
         builder.Property(agent => agent.ModelProvider)
             .HasMaxLength(100)
             .IsRequired();
@@ -30,6 +45,26 @@ public sealed class AgentConfiguration : IEntityTypeConfiguration<Agent>
         builder.Property(agent => agent.ModelConfigJson)
             .HasColumnType("nvarchar(max)")
             .IsRequired();
+
+        builder.Property(agent => agent.UseGlobalAISettings)
+            .HasDefaultValue(true)
+            .IsRequired();
+
+        builder.Property(agent => agent.AIProvider)
+            .HasConversion<string>()
+            .HasMaxLength(50);
+
+        builder.Property(agent => agent.AIModel)
+            .HasMaxLength(150);
+
+        builder.Property(agent => agent.AISystemPrompt)
+            .HasMaxLength(8000);
+
+        builder.Property(agent => agent.AIApiKey)
+            .HasMaxLength(4000);
+
+        builder.Property(agent => agent.AIBaseUrl)
+            .HasMaxLength(500);
 
         builder.Property(agent => agent.Status)
             .HasConversion<string>()

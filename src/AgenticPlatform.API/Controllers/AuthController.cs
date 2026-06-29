@@ -111,6 +111,26 @@ public sealed class AuthController : ControllerBase
         return Ok(ApiResponse<AuthResponseDto>.Ok(authResponse, "Login successful."));
     }
 
+    [HttpPost("signup")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(ApiResponse<AuthResponseDto>), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ApiResponse<AuthResponseDto>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<AuthResponseDto>), StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<ApiResponse<AuthResponseDto>>> SignUp(
+        SelfRegisterDto request,
+        CancellationToken cancellationToken)
+    {
+        var registerRequest = new RegisterDto
+        {
+            DisplayName = request.DisplayName,
+            Email = request.Email,
+            Password = request.Password,
+            Role = ApplicationRoles.Developer
+        };
+
+        return await RegisterUserAsync(registerRequest, "Account created successfully.", cancellationToken);
+    }
+
     [HttpPost("refresh-token")]
     [AllowAnonymous]
     [ProducesResponseType(typeof(ApiResponse<AuthResponseDto>), StatusCodes.Status200OK)]
@@ -206,5 +226,53 @@ public sealed class AuthController : ControllerBase
             DisplayName = user.DisplayName,
             Roles = roles.ToArray()
         };
+    }
+
+    private async Task<ActionResult<ApiResponse<AuthResponseDto>>> RegisterUserAsync(
+        RegisterDto request,
+        string successMessage,
+        CancellationToken cancellationToken)
+    {
+        if (!await _roleManager.RoleExistsAsync(request.Role))
+        {
+            return BadRequest(ApiResponse<AuthResponseDto>.Fail("Requested role does not exist."));
+        }
+
+        var existingUser = await _userManager.FindByEmailAsync(request.Email);
+        if (existingUser is not null)
+        {
+            return Conflict(ApiResponse<AuthResponseDto>.Fail("A user with this email already exists."));
+        }
+
+        var user = new ApplicationUser
+        {
+            UserName = request.Email,
+            Email = request.Email,
+            DisplayName = request.DisplayName,
+            EmailConfirmed = true
+        };
+
+        var createResult = await _userManager.CreateAsync(user, request.Password);
+        if (!createResult.Succeeded)
+        {
+            return BadRequest(ApiResponse<AuthResponseDto>.Fail(
+                "User registration failed.",
+                createResult.Errors.Select(error => error.Description).ToArray()));
+        }
+
+        var roleResult = await _userManager.AddToRoleAsync(user, request.Role);
+        if (!roleResult.Succeeded)
+        {
+            return BadRequest(ApiResponse<AuthResponseDto>.Fail(
+                "User was created, but role assignment failed.",
+                roleResult.Errors.Select(error => error.Description).ToArray()));
+        }
+
+        var authResponse = await CreateAuthResponseAsync(user, cancellationToken);
+
+        return CreatedAtAction(
+            nameof(Register),
+            new { version = HttpContext.GetRequestedApiVersion()?.ToString() ?? "1.0" },
+            ApiResponse<AuthResponseDto>.Ok(authResponse, successMessage));
     }
 }

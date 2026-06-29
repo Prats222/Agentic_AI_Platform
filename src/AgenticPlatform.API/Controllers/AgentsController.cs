@@ -53,14 +53,14 @@ public sealed class AgentsController : ControllerBase
 
         var totalCount = await query.CountAsync(cancellationToken);
         var agents = await query
+            .Include(agent => agent.Tools)
             .Skip((queryParameters.PageNumber - 1) * queryParameters.PageSize)
             .Take(queryParameters.PageSize)
-            .ProjectTo<AgentDto>(_mapper.ConfigurationProvider)
             .ToListAsync(cancellationToken);
 
         var result = new PagedResult<AgentDto>
         {
-            Items = agents,
+            Items = _mapper.Map<IReadOnlyList<AgentDto>>(agents),
             PageNumber = queryParameters.PageNumber,
             PageSize = queryParameters.PageSize,
             TotalCount = totalCount
@@ -77,7 +77,9 @@ public sealed class AgentsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<ApiResponse<AgentDto>>> GetAgent(Guid id, CancellationToken cancellationToken)
     {
-        var agent = await _unitOfWork.Agents.GetByIdAsync(id, cancellationToken);
+        var agent = await _unitOfWork.Agents.Query()
+            .Include(item => item.Tools)
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
         if (agent is null)
         {
             return NotFound(ApiResponse<AgentDto>.Fail("Agent was not found."));
@@ -126,7 +128,10 @@ public sealed class AgentsController : ControllerBase
         UpdateAgentDto request,
         CancellationToken cancellationToken)
     {
-        var agent = await _unitOfWork.Agents.GetByIdAsync(id, cancellationToken);
+        var agent = await _unitOfWork.Agents.Query()
+            .Include(item => item.Tools)
+            .Include(item => item.Workflows)
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
         if (agent is null)
         {
             return NotFound(ApiResponse<AgentDto>.Fail("Agent was not found."));
@@ -148,6 +153,48 @@ public sealed class AgentsController : ControllerBase
         return Ok(ApiResponse<AgentDto>.Ok(_mapper.Map<AgentDto>(agent), "Agent updated successfully."));
     }
 
+    [HttpPut("{id:guid}/tools")]
+    [Authorize(Roles = $"{ApplicationRoles.Admin},{ApplicationRoles.Developer}")]
+    [ProducesResponseType(typeof(ApiResponse<AgentDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<AgentDto>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<AgentDto>), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<ApiResponse<AgentDto>>> SetAgentTools(
+        Guid id,
+        SetAgentToolsDto request,
+        CancellationToken cancellationToken)
+    {
+        var agent = await _unitOfWork.Agents.Query()
+            .Include(item => item.Tools)
+            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+
+        if (agent is null)
+        {
+            return NotFound(ApiResponse<AgentDto>.Fail("Agent was not found."));
+        }
+
+        var distinctToolIds = request.ToolIds.Distinct().ToArray();
+        var tools = distinctToolIds.Length == 0
+            ? new List<Tool>()
+            : await _unitOfWork.Tools.Query()
+                .Where(tool => distinctToolIds.Contains(tool.Id))
+                .ToListAsync(cancellationToken);
+
+        if (tools.Count != distinctToolIds.Length)
+        {
+            return BadRequest(ApiResponse<AgentDto>.Fail("One or more selected tools were not found."));
+        }
+
+        agent.Tools.Clear();
+        foreach (var tool in tools)
+        {
+            agent.Tools.Add(tool);
+        }
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return Ok(ApiResponse<AgentDto>.Ok(_mapper.Map<AgentDto>(agent), "Agent tools updated successfully."));
+    }
+
     [HttpDelete("{id:guid}")]
     [Authorize(Roles = ApplicationRoles.Admin)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -162,8 +209,39 @@ public sealed class AgentsController : ControllerBase
             return NotFound(ApiResponse<object>.Fail("Agent was not found."));
         }
 
+        var workflowSteps = await _unitOfWork.Repository<WorkflowStep>()
+            .Query()
+            .Where(step => step.AgentId == id)
+            .ToListAsync(cancellationToken);
+
+        var executions = await _unitOfWork.Repository<Execution>()
+            .Query()
+            .Where(execution => execution.AgentId == id)
+            .ToListAsync(cancellationToken);
+
+        var executionIds = executions.Select(execution => execution.Id).ToArray();
+        var executionLogs = executionIds.Length == 0
+            ? new List<ExecutionLog>()
+            : await _unitOfWork.Repository<ExecutionLog>()
+                .Query()
+                .Where(log => executionIds.Contains(log.ExecutionId))
+                .ToListAsync(cancellationToken);
+
+        _unitOfWork.Repository<ExecutionLog>().RemoveRange(executionLogs);
+        _unitOfWork.Repository<Execution>().RemoveRange(executions);
+        _unitOfWork.Repository<WorkflowStep>().RemoveRange(workflowSteps);
+        agent.Tools.Clear();
+        agent.Workflows.Clear();
         _unitOfWork.Agents.Remove(agent);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            return Conflict(ApiResponse<object>.Fail("Agent cannot be deleted because it is still referenced by related records."));
+        }
 
         return NoContent();
     }

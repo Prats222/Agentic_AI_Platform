@@ -21,6 +21,7 @@ public sealed class ApplicationDbContext : IdentityDbContext<ApplicationUser, Id
     public DbSet<Execution> Executions => Set<Execution>();
     public DbSet<ExecutionLog> ExecutionLogs => Set<ExecutionLog>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<AISettings> AISettings => Set<AISettings>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -35,5 +36,6 @@ public sealed class ApplicationDbContext : IdentityDbContext<ApplicationUser, Id
 
         builder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
         IdentitySeed.Seed(builder);
+        DemoSeed.Seed(builder);
     }
 }

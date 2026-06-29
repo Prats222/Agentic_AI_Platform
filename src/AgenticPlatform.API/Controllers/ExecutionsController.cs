@@ -69,6 +69,38 @@ public sealed class ExecutionsController : ControllerBase
             ApiResponse<ExecutionDto>.Ok(_mapper.Map<ExecutionDto>(execution), "Execution queued successfully."));
     }
 
+    [HttpPost("{id:guid}/retry")]
+    [Authorize(Roles = $"{ApplicationRoles.Admin},{ApplicationRoles.Developer}")]
+    [ProducesResponseType(typeof(ApiResponse<ExecutionDto>), StatusCodes.Status202Accepted)]
+    [ProducesResponseType(typeof(ApiResponse<ExecutionDto>), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ApiResponse<ExecutionDto>>> RetryExecution(Guid id, CancellationToken cancellationToken)
+    {
+        var previousExecution = await _unitOfWork.Executions.GetByIdAsync(id, cancellationToken);
+        if (previousExecution is null)
+        {
+            return NotFound(ApiResponse<ExecutionDto>.Fail("Execution was not found."));
+        }
+
+        var retry = new Execution
+        {
+            TargetType = previousExecution.TargetType,
+            Status = ExecutionStatus.Pending,
+            AgentId = previousExecution.AgentId,
+            WorkflowId = previousExecution.WorkflowId,
+            TriggeredByUserId = GetCurrentUserId(),
+            InputJson = previousExecution.InputJson
+        };
+
+        await _unitOfWork.Executions.AddAsync(retry, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await _executionQueue.QueueAsync(retry.Id, cancellationToken);
+
+        return AcceptedAtAction(
+            nameof(GetExecution),
+            new { id = retry.Id, version = HttpContext.GetRequestedApiVersion()?.ToString() ?? "1.0" },
+            ApiResponse<ExecutionDto>.Ok(_mapper.Map<ExecutionDto>(retry), "Execution retry queued successfully."));
+    }
+
     [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(ApiResponse<ExecutionDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<ExecutionDto>), StatusCodes.Status404NotFound)]

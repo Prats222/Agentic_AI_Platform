@@ -14,6 +14,8 @@ using AgenticPlatform.Infrastructure.HealthChecks;
 using AgenticPlatform.Infrastructure.Identity;
 using AgenticPlatform.Infrastructure.Repositories;
 using AgenticPlatform.Infrastructure.Services;
+using AgenticPlatform.Infrastructure.Services.LLM;
+using AgenticPlatform.Infrastructure.Services.Tools;
 using AgenticPlatform.Infrastructure.UnitOfWork;
 using Asp.Versioning;
 using FluentValidation;
@@ -124,11 +126,26 @@ builder.Services.AddScoped<IExecutionRepository, ExecutionRepository>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IExecutionService, ExecutionService>();
+builder.Services.AddScoped<IAISettingsService, AISettingsService>();
+builder.Services.AddScoped<ILLMProvider, GeminiProvider>();
+builder.Services.AddScoped<ILLMProvider, OllamaProvider>();
+builder.Services.AddScoped<ILLMProvider, OpenRouterProvider>();
+builder.Services.AddScoped<ILLMProviderFactory, LLMProviderFactory>();
+builder.Services.AddScoped<IToolExecutionService, ToolExecutionService>();
+builder.Services.AddScoped<IToolExecutor, CalculatorToolExecutor>();
+builder.Services.AddScoped<IToolExecutor, HttpToolExecutor>();
+builder.Services.AddScoped<IToolExecutor, WebSearchToolExecutor>();
+builder.Services.AddScoped<IToolExecutor, FileReaderToolExecutor>();
+builder.Services.AddScoped<IToolExecutor, PythonScriptToolExecutor>();
 builder.Services.AddSingleton<IExecutionQueue, ExecutionQueue>();
 builder.Services.AddHostedService<ExecutionWorker>();
 builder.Services.AddHttpClient("tool-runner", client =>
 {
     client.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddHttpClient("llm", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(120);
 });
 
 builder.Services

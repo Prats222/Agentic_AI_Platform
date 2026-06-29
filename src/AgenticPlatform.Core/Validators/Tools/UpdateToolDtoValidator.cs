@@ -1,3 +1,4 @@
+using AgenticPlatform.Core.Constants;
 using AgenticPlatform.Core.DTOs.Tools;
 using FluentValidation;
 
@@ -26,13 +27,25 @@ public sealed class UpdateToolDtoValidator : AbstractValidator<UpdateToolDto>
         RuleFor(request => request.EndpointUrl)
             .NotEmpty()
             .MaximumLength(2048)
-            .Must(BeValidAbsoluteUrl)
-            .WithMessage("EndpointUrl must be a valid absolute URL.");
+            .Must((request, endpointUrl) => BeValidEndpoint(request.Category, endpointUrl))
+            .WithMessage("EndpointUrl must be a valid absolute HTTP/HTTPS URL, or a builtin:// URL for built-in tools.");
     }
 
-    private static bool BeValidAbsoluteUrl(string value)
+    private static bool BeValidEndpoint(string category, string value)
     {
-        return Uri.TryCreate(value, UriKind.Absolute, out var uri)
-            && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
+        if (category.Equals(BuiltInToolCategories.PythonScript, StringComparison.OrdinalIgnoreCase))
+        {
+            return !string.IsNullOrWhiteSpace(value);
+        }
+
+        if (Uri.TryCreate(value, UriKind.Absolute, out var uri)
+            && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+        {
+            return true;
+        }
+
+        return !BuiltInToolCategories.IsHttpCategory(category)
+            && Uri.TryCreate(value, UriKind.Absolute, out uri)
+            && uri.Scheme.Equals("builtin", StringComparison.OrdinalIgnoreCase);
     }
 }

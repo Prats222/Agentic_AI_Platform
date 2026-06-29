@@ -52,11 +52,103 @@ namespace AgenticPlatform.Infrastructure.Data.Migrations
                     b.ToTable("AgentWorkflows", (string)null);
                 });
 
+            modelBuilder.Entity("AgenticPlatform.Core.Entities.AISettings", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ApiKey")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("BaseUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("MaxTokens")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Model")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("SystemPrompt")
+                        .IsRequired()
+                        .HasMaxLength(8000)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<double>("Temperature")
+                        .HasColumnType("float");
+
+                    b.Property<double>("TopP")
+                        .HasColumnType("float");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("AISettings", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111111"),
+                            BaseUrl = "http://localhost:11434",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 6, 28, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            MaxTokens = 2048,
+                            Model = "llama3.1",
+                            Provider = "Ollama",
+                            SystemPrompt = "You are a helpful AI agent.",
+                            Temperature = 0.20000000000000001,
+                            TopP = 0.90000000000000002
+                        });
+                });
+
             modelBuilder.Entity("AgenticPlatform.Core.Entities.Agent", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AIApiKey")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("AIBaseUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int?>("AIMaxTokens")
+                        .HasColumnType("int");
+
+                    b.Property<string>("AIModel")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("AIProvider")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("AISystemPrompt")
+                        .HasMaxLength(8000)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<double?>("AITemperature")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("AITopP")
+                        .HasColumnType("float");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
@@ -64,6 +156,14 @@ namespace AgenticPlatform.Infrastructure.Data.Migrations
                     b.Property<string>("Description")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("ExpectedOutput")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("Goal")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
 
                     b.Property<string>("ModelConfigJson")
                         .IsRequired()
@@ -84,13 +184,30 @@ namespace AgenticPlatform.Infrastructure.Data.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
 
+                    b.Property<string>("ProjectName")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("Role")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<string>("Tags")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("UseGlobalAISettings")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
 
                     b.HasKey("Id");
 
@@ -98,6 +215,33 @@ namespace AgenticPlatform.Infrastructure.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("Agents", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("bbbbbbbb-0000-0000-0000-000000000001"),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 6, 28, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Description = "Uses global AI settings to answer research-style prompts.",
+                            ModelConfigJson = "{}",
+                            ModelName = "Global default",
+                            ModelProvider = "Global",
+                            Name = "Demo Research Agent",
+                            Status = "Active",
+                            UseGlobalAISettings = true
+                        },
+                        new
+                        {
+                            Id = new Guid("bbbbbbbb-0000-0000-0000-000000000002"),
+                            AISystemPrompt = "You are a concise summarization agent. Return clear, practical summaries.",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 6, 28, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Description = "Uses global AI settings to turn prior workflow output into a concise summary.",
+                            ModelConfigJson = "{}",
+                            ModelName = "Global default",
+                            ModelProvider = "Global",
+                            Name = "Demo Summary Agent",
+                            Status = "Active",
+                            UseGlobalAISettings = true
+                        });
                 });
 
             modelBuilder.Entity("AgenticPlatform.Core.Entities.Execution", b =>
@@ -282,6 +426,41 @@ namespace AgenticPlatform.Infrastructure.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("Tools", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("aaaaaaaa-0000-0000-0000-000000000001"),
+                            Category = "Calculator",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 6, 28, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Description = "Built-in arithmetic calculator. Input: { \"expression\": \"(2 + 3) * 4\" }.",
+                            EndpointUrl = "builtin://calculator",
+                            InputSchemaJson = "{\"type\":\"object\",\"properties\":{\"expression\":{\"type\":\"string\"}},\"required\":[\"expression\"]}",
+                            IsEnabled = true,
+                            Name = "Demo Calculator"
+                        },
+                        new
+                        {
+                            Id = new Guid("aaaaaaaa-0000-0000-0000-000000000002"),
+                            Category = "WebSearch",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 6, 28, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Description = "Built-in DuckDuckGo instant-answer search. Input: { \"query\": \"Gemini API\" }.",
+                            EndpointUrl = "builtin://web-search",
+                            InputSchemaJson = "{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\"}},\"required\":[\"query\"]}",
+                            IsEnabled = true,
+                            Name = "Demo Web Search"
+                        },
+                        new
+                        {
+                            Id = new Guid("aaaaaaaa-0000-0000-0000-000000000003"),
+                            Category = "FileReader",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 6, 28, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Description = "Reads small files under the API content root. Input: { \"path\": \"appsettings.json\" }.",
+                            EndpointUrl = "builtin://file-reader",
+                            InputSchemaJson = "{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\"}},\"required\":[\"path\"]}",
+                            IsEnabled = true,
+                            Name = "Demo File Reader"
+                        });
                 });
 
             modelBuilder.Entity("AgenticPlatform.Core.Entities.Workflow", b =>
@@ -316,6 +495,24 @@ namespace AgenticPlatform.Infrastructure.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("Workflows", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("cccccccc-0000-0000-0000-000000000001"),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 6, 28, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Description = "Two-step workflow. Step 1 calculates the input expression; step 2 maps the result into a second calculation.",
+                            Name = "Demo Calculator Chain",
+                            Status = "Active"
+                        },
+                        new
+                        {
+                            Id = new Guid("cccccccc-0000-0000-0000-000000000002"),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 6, 28, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Description = "Agent-to-agent workflow. Research agent answers the prompt; summary agent summarizes the prior output.",
+                            Name = "Demo Research And Summary",
+                            Status = "Active"
+                        });
                 });
 
             modelBuilder.Entity("AgenticPlatform.Core.Entities.WorkflowStep", b =>
@@ -377,6 +574,64 @@ namespace AgenticPlatform.Infrastructure.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("WorkflowSteps", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("dddddddd-0000-0000-0000-000000000001"),
+                            ConfigurationJson = "{}",
+                            ContinueOnError = false,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 6, 28, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Description = "Runs the calculator against the workflow input.",
+                            InputMappingJson = "{}",
+                            Name = "Calculate original expression",
+                            Order = 1,
+                            StepType = "Tool",
+                            ToolId = new Guid("aaaaaaaa-0000-0000-0000-000000000001"),
+                            WorkflowId = new Guid("cccccccc-0000-0000-0000-000000000001")
+                        },
+                        new
+                        {
+                            Id = new Guid("dddddddd-0000-0000-0000-000000000002"),
+                            ConfigurationJson = "{}",
+                            ContinueOnError = false,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 6, 28, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Description = "Uses the prior result to calculate result + 12.",
+                            InputMappingJson = "{\"template\":\"{{previous.result}} + 12\",\"wrapAs\":\"expression\"}",
+                            Name = "Add twelve",
+                            Order = 2,
+                            StepType = "Tool",
+                            ToolId = new Guid("aaaaaaaa-0000-0000-0000-000000000001"),
+                            WorkflowId = new Guid("cccccccc-0000-0000-0000-000000000001")
+                        },
+                        new
+                        {
+                            Id = new Guid("dddddddd-0000-0000-0000-000000000003"),
+                            AgentId = new Guid("bbbbbbbb-0000-0000-0000-000000000001"),
+                            ConfigurationJson = "{}",
+                            ContinueOnError = false,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 6, 28, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Description = "Passes the original prompt to the research agent.",
+                            InputMappingJson = "{\"source\":\"original\"}",
+                            Name = "Research answer",
+                            Order = 1,
+                            StepType = "Agent",
+                            WorkflowId = new Guid("cccccccc-0000-0000-0000-000000000002")
+                        },
+                        new
+                        {
+                            Id = new Guid("dddddddd-0000-0000-0000-000000000004"),
+                            AgentId = new Guid("bbbbbbbb-0000-0000-0000-000000000002"),
+                            ConfigurationJson = "{}",
+                            ContinueOnError = false,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 6, 28, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Description = "Summarizes the prior agent output.",
+                            InputMappingJson = "{\"template\":\"Summarize this clearly for a product demo: {{previous.output}}\",\"wrapAs\":\"prompt\"}",
+                            Name = "Summarize answer",
+                            Order = 2,
+                            StepType = "Agent",
+                            WorkflowId = new Guid("cccccccc-0000-0000-0000-000000000002")
+                        });
                 });
 
             modelBuilder.Entity("AgenticPlatform.Infrastructure.Identity.ApplicationUser", b =>

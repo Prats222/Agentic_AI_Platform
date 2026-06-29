@@ -1,4 +1,5 @@
 using System.Net;
+using AgenticPlatform.Infrastructure.Services.LLM;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AgenticPlatform.API.Middleware;
@@ -25,6 +26,11 @@ public sealed class GlobalExceptionHandlingMiddleware
         {
             await _next(context);
         }
+        catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+        {
+            context.Response.Clear();
+            context.Response.StatusCode = 499;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unhandled exception while processing {Method} {Path}.", context.Request.Method, context.Request.Path);
@@ -40,15 +46,21 @@ public sealed class GlobalExceptionHandlingMiddleware
         }
 
         context.Response.Clear();
-        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        var statusCode = exception is LLMProviderException
+            ? StatusCodes.Status502BadGateway
+            : StatusCodes.Status500InternalServerError;
+
+        context.Response.StatusCode = statusCode;
         context.Response.ContentType = "application/problem+json";
 
         var problemDetails = new ProblemDetails
         {
-            Title = "An unexpected error occurred.",
+            Title = exception is LLMProviderException providerException
+                ? $"{providerException.Provider} request failed."
+                : "An unexpected error occurred.",
             Detail = _environment.IsDevelopment() ? exception.Message : "Please contact support if the problem continues.",
-            Status = (int)HttpStatusCode.InternalServerError,
-            Type = "https://httpstatuses.com/500",
+            Status = statusCode,
+            Type = $"https://httpstatuses.com/{statusCode}",
             Instance = context.Request.Path
         };
 

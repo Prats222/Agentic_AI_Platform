@@ -8,7 +8,16 @@ public sealed class AgentMappingProfile : Profile
 {
     public AgentMappingProfile()
     {
-        CreateMap<Agent, AgentDto>();
+        CreateMap<Agent, AgentDto>()
+            .ForMember(
+                destination => destination.HasAIApiKey,
+                options => options.MapFrom(source => !string.IsNullOrWhiteSpace(source.AIApiKey)))
+            .ForMember(
+                destination => destination.ToolIds,
+                options => options.MapFrom(source => source.Tools.Select(tool => tool.Id)))
+            .ForMember(
+                destination => destination.ToolNames,
+                options => options.MapFrom(source => source.Tools.Select(tool => tool.Name)));
         CreateMap<CreateAgentDto, Agent>();
         CreateMap<UpdateAgentDto, Agent>()
             .ForMember(destination => destination.Id, options => options.Ignore())
