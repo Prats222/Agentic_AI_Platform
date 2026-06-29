@@ -504,3 +504,179 @@ Phase 14 product expansion adds:
 - Frontend agent creation form with per-agent model override controls.
 - Frontend workflow builder with searchable agent/tool cards and drag-to-order step creation.
 - Chat page for asking selected LLMs questions outside a workflow.
+
+## Current Implemented Feature Set
+
+The project has now grown into a working full-stack agentic AI platform named **PratsPilot**.
+
+### Backend Foundation
+
+- Clean Architecture style solution split into API, Core, and Infrastructure projects.
+- ASP.NET Core Web API targeting `.NET 10`.
+- Entity Framework Core with SQL Server / LocalDB.
+- ASP.NET Core Identity.
+- JWT authentication.
+- Refresh token support.
+- Role-based authorization for Admin, Developer, and Viewer roles.
+- Seeded admin account.
+- Repository Pattern and Unit of Work.
+- AutoMapper mapping profiles.
+- FluentValidation validators.
+- Serilog request logging.
+- Global exception handling middleware.
+- Request/response logging middleware.
+- CORS configuration for the React frontend.
+- Response caching and cache headers.
+- Rate limiting.
+- Health checks for SQL Server and the execution engine.
+- Swagger/OpenAPI documentation.
+
+### Core Domain APIs
+
+- Authentication:
+  - Login.
+  - Signup for normal users.
+  - Refresh token.
+  - Logout.
+- Agents:
+  - Create agents.
+  - Edit agents.
+  - Delete agents with dependent cleanup.
+  - Agent metadata: project name, role, goal, expected output, tags.
+  - Global or per-agent AI settings.
+  - Optional tool assignment per agent.
+- Workflows:
+  - Create workflows.
+  - Edit workflows.
+  - Delete workflows with dependent cleanup.
+  - Add, update, and delete workflow steps.
+  - Agent and tool workflow steps.
+  - Step input mapping between workflow steps.
+- Tools:
+  - Create tools from the frontend.
+  - Execute tools directly.
+  - Built-in tool categories.
+  - Python script tools.
+- Executions:
+  - Start agent executions.
+  - Start workflow executions.
+  - Background queued execution.
+  - Execution status tracking.
+  - Execution logs.
+  - Persisted input, output, errors, timestamps.
+  - Retry failed executions.
+
+### AI Provider Support
+
+- Global AI settings.
+- Agent-level AI setting overrides.
+- Provider abstraction through `ILLMProvider`.
+- Gemini provider.
+- Ollama provider.
+- OpenRouter provider.
+- Direct chat/playground endpoint.
+- Live OpenRouter model lookup.
+- Free OpenRouter model filtering.
+- Provider error handling with useful API responses.
+- API key storage in backend settings for local development.
+
+### Execution Runtime
+
+- Background execution queue.
+- Hosted execution worker.
+- Real workflow execution service.
+- Agent execution through configured LLM provider.
+- Workflow orchestration across multiple steps.
+- Previous step output passed into the next step.
+- Tool step execution.
+- Agent step execution.
+- Persisted final workflow output.
+- Persisted step-by-step runtime logs.
+- Assigned agent tools are included in the agent system prompt as available capabilities.
+
+### Tool Engine
+
+- Calculator tool executor.
+- HTTP / REST API tool executor.
+- Web search-style tool executor.
+- File reader tool executor.
+- Python script tool executor.
+- Python tools receive input JSON through `stdin`.
+- Python tools return JSON through `stdout`.
+- Tool execution result includes success state, output JSON, error message, timestamps, and duration.
+
+### Seeded Demo Data
+
+- Seeded demo tools:
+  - Demo Calculator.
+  - Demo Web Search.
+  - Demo File Reader.
+- Seeded demo agents:
+  - Demo Research Agent.
+  - Demo Summary Agent.
+- Seeded demo workflows:
+  - Demo Calculator Chain.
+  - Demo Research And Summary.
+- Demo catalog endpoint for frontend samples.
+
+### React Frontend: PratsPilot
+
+- Vite + React + TypeScript frontend.
+- MUI-based UI.
+- React Query for server state.
+- Axios API client.
+- Login page with prefilled admin demo credentials.
+- Normal user registration page.
+- Protected routes.
+- JWT token handling.
+- Refresh token handling on expired access tokens.
+- Logout.
+- Dashboard with runtime metrics and execution launcher.
+- Agents page:
+  - Create agents.
+  - Edit agents.
+  - Delete agents.
+  - Project filter.
+  - Per-agent AI override controls.
+  - Searchable multi-select tool picker.
+  - Built-in tools grouped at the top of the picker.
+  - Custom tools searchable below built-ins.
+- Workflows page:
+  - Search agents and tools.
+  - Drag steps into a workflow.
+  - Create workflows.
+  - Edit workflows.
+  - Delete workflows.
+- Tools page:
+  - View tools.
+  - Create tools.
+  - Create Python script tools.
+  - Execute tools.
+  - Auto-generate sample input from tool input schema.
+  - Show tool execution output or validation errors.
+- Executions page:
+  - Latest execution history.
+  - History size selector: latest 10, 25, or 100.
+  - Retry failed executions.
+  - Structured final output viewer.
+  - Step-by-step workflow output boxes.
+  - Expandable raw JSON.
+  - Expandable runtime logs.
+  - Top-position toast messages.
+- Chat page:
+  - Select provider.
+  - Select model.
+  - Ask direct LLM questions.
+  - Display provider errors.
+- AI Settings page:
+  - Configure global provider.
+  - Configure model, temperature, max tokens, top-p, system prompt, base URL, and API key.
+  - Live/free OpenRouter model loading.
+- Dark mode and light mode.
+- Theme mode persists in local storage.
+ 
+### Current Practical Status
+
+- Backend builds successfully.
+- Frontend builds successfully.
+- The platform supports creating agents, assigning tools, building workflows, running executions, inspecting outputs, retrying failures, chatting with LLMs, and creating custom Python tools.
