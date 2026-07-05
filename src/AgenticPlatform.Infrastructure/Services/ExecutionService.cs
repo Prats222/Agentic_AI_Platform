@@ -51,6 +51,7 @@ public sealed class ExecutionService : IExecutionService
 
         execution.Status = ExecutionStatus.Running;
         execution.StartedAt = DateTimeOffset.UtcNow;
+        var executionStartedAt = DateTimeOffset.UtcNow;
         AddLog(execution.Id, ExecutionLogLevel.Information, "Execution started.");
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -67,15 +68,20 @@ public sealed class ExecutionService : IExecutionService
                 outputJson = await RunWorkflowAsync(execution, cancellationToken);
             }
 
-            execution.Status = ExecutionStatus.Completed;
-            execution.CompletedAt = DateTimeOffset.UtcNow;
             execution.OutputJson = outputJson;
-            AddLog(execution.Id, ExecutionLogLevel.Information, "Execution completed.");
+            execution.DurationMs = (DateTimeOffset.UtcNow - executionStartedAt).TotalMilliseconds;
+            if (execution.Status == ExecutionStatus.Running)
+            {
+                execution.Status = ExecutionStatus.Completed;
+                execution.CompletedAt = DateTimeOffset.UtcNow;
+                AddLog(execution.Id, ExecutionLogLevel.Information, "Execution completed.");
+            }
         }
         catch (Exception ex)
         {
             execution.Status = ExecutionStatus.Failed;
             execution.CompletedAt = DateTimeOffset.UtcNow;
+            execution.DurationMs = (DateTimeOffset.UtcNow - executionStartedAt).TotalMilliseconds;
             execution.ErrorMessage = ex.Message;
             AddLog(execution.Id, ExecutionLogLevel.Error, "Execution failed.", JsonSerializer.Serialize(new { ex.Message }));
         }
@@ -127,7 +133,11 @@ public sealed class ExecutionService : IExecutionService
                 var stepInputJson = BuildStepInputJson(step, originalInputJson, currentInputJson, stepOutputs);
                 string stepOutputJson;
 
-                if (step.StepType == WorkflowStepType.Tool)
+                if (step.StepType == WorkflowStepType.HumanApproval)
+                {
+                    stepOutputJson = await RunHumanApprovalStepAsync(execution, step, stepInputJson, cancellationToken);
+                }
+                else if (step.StepType == WorkflowStepType.Tool)
                 {
                     stepOutputJson = await RunToolStepAsync(execution.Id, step, stepInputJson, cancellationToken);
                 }
@@ -146,6 +156,11 @@ public sealed class ExecutionService : IExecutionService
                     stepOutputJson,
                     null));
                 AddLog(execution.Id, ExecutionLogLevel.Information, $"Step {step.Order}: {step.Name} completed.");
+
+                if (execution.Status == ExecutionStatus.WaitingForApproval)
+                {
+                    break;
+                }
             }
             catch (Exception ex) when (step.ContinueOnError)
             {
@@ -166,6 +181,9 @@ public sealed class ExecutionService : IExecutionService
             }
         }
 
+        var finalOutputJson = stepOutputs.LastOrDefault(stepOutput => stepOutput.StepType != WorkflowStepType.HumanApproval && stepOutput.Error is null)?.OutputJson
+            ?? currentInputJson;
+
         return JsonSerializer.Serialize(new
         {
             executionId = execution.Id,
@@ -173,7 +191,8 @@ public sealed class ExecutionService : IExecutionService
             workflowId = execution.Workflow.Id,
             workflowName = execution.Workflow.Name,
             input = TryDeserialize(execution.InputJson),
-            finalOutput = TryDeserialize(currentInputJson),
+            finalOutput = TryDeserialize(finalOutputJson),
+            runtimeState = TryDeserialize(currentInputJson),
             steps = stepOutputs.Select(stepOutput => new
             {
                 stepId = stepOutput.StepId,
@@ -384,6 +403,66 @@ public sealed class ExecutionService : IExecutionService
         });
     }
 
+    private async Task<string> RunHumanApprovalStepAsync(
+        Execution execution,
+        WorkflowStep step,
+        string inputJson,
+        CancellationToken cancellationToken)
+    {
+        var existingApproval = await _dbContext.HumanApprovalRequests
+            .FirstOrDefaultAsync(item => item.ExecutionId == execution.Id && item.WorkflowStepId == step.Id, cancellationToken);
+
+        if (existingApproval?.IsApproved == true)
+        {
+            AddLog(execution.Id, ExecutionLogLevel.Information, $"Human approval already approved at step {step.Order}: {step.Name}.");
+            return inputJson;
+        }
+
+        if (existingApproval?.IsRejected == true)
+        {
+            throw new InvalidOperationException($"Human approval was rejected at step {step.Order}: {step.Name}.");
+        }
+
+        var instructions = "Review the previous step output before continuing this workflow.";
+        try
+        {
+            using var configuration = JsonDocument.Parse(step.ConfigurationJson);
+            if (TryGetStringProperty(configuration.RootElement, "instructions", out var configuredInstructions))
+            {
+                instructions = configuredInstructions;
+            }
+        }
+        catch (JsonException)
+        {
+            // Keep default instructions when step configuration is malformed.
+        }
+
+        if (existingApproval is null)
+        {
+            await _dbContext.HumanApprovalRequests.AddAsync(new HumanApprovalRequest
+            {
+                ExecutionId = execution.Id,
+                WorkflowStepId = step.Id,
+                Title = step.Name,
+                Instructions = instructions,
+                PayloadJson = inputJson
+            }, cancellationToken);
+        }
+
+        execution.Status = ExecutionStatus.WaitingForApproval;
+        execution.CompletedAt = DateTimeOffset.UtcNow;
+        AddLog(execution.Id, ExecutionLogLevel.Warning, $"Human approval required at step {step.Order}: {step.Name}.");
+
+        return JsonSerializer.Serialize(new
+        {
+            waitingForApproval = true,
+            stepId = step.Id,
+            stepName = step.Name,
+            instructions,
+            payload = TryDeserialize(inputJson)
+        });
+    }
+
     private async Task<AgentRunResult> RunAgentByIdAsync(Guid agentId, string prompt, Guid executionId, CancellationToken cancellationToken)
     {
         var chatRequest = await _aiSettingsService.BuildChatRequestAsync(agentId, prompt, cancellationToken);
@@ -396,6 +475,14 @@ public sealed class ExecutionService : IExecutionService
 
         var provider = _llmProviderFactory.GetProvider(chatRequest.Provider);
         var response = await provider.ChatAsync(chatRequest, cancellationToken);
+        var execution = await _dbContext.Executions.FirstOrDefaultAsync(item => item.Id == executionId, cancellationToken);
+        if (execution is not null)
+        {
+            execution.Provider = chatRequest.Provider.ToString();
+            execution.Model = chatRequest.Model;
+            execution.EstimatedInputTokens = EstimateTokens(prompt);
+            execution.EstimatedOutputTokens = EstimateTokens(response.Content);
+        }
 
         AddLog(executionId, ExecutionLogLevel.Information, "LLM response received.", JsonSerializer.Serialize(new
         {
@@ -473,6 +560,11 @@ public sealed class ExecutionService : IExecutionService
         {
             return json;
         }
+    }
+
+    private static int EstimateTokens(string value)
+    {
+        return Math.Max(1, (int)Math.Ceiling(value.Length / 4.0));
     }
 
     private sealed record AgentRunResult(AIProvider Provider, string Model, string Content);

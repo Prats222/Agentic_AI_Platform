@@ -6,9 +6,11 @@ body {
   min-height: 100%;
   margin: 0;
   background:
-    radial-gradient(circle at top left, var(--app-bg-a), transparent 32rem),
-    radial-gradient(circle at bottom right, var(--app-bg-b), transparent 28rem),
+    radial-gradient(circle at 8% 0%, var(--app-bg-a), transparent 30rem),
+    radial-gradient(circle at 90% 12%, var(--app-bg-b), transparent 28rem),
+    radial-gradient(circle at 50% 100%, var(--app-bg-c), transparent 26rem),
     var(--app-bg);
+  background-attachment: fixed;
 }
 
 #root {

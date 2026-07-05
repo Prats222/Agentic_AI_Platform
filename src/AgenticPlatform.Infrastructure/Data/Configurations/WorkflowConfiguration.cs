@@ -1,4 +1,5 @@
 using AgenticPlatform.Core.Entities;
+using AgenticPlatform.Core.Constants;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -12,6 +13,15 @@ public sealed class WorkflowConfiguration : IEntityTypeConfiguration<Workflow>
 
         builder.HasKey(workflow => workflow.Id);
 
+        builder.Property(workflow => workflow.RealmId)
+            .HasDefaultValue(ApplicationRealms.UserRealmId)
+            .IsRequired();
+
+        builder.HasOne(workflow => workflow.Realm)
+            .WithMany(realm => realm.Workflows)
+            .HasForeignKey(workflow => workflow.RealmId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         builder.Property(workflow => workflow.Name)
             .HasMaxLength(150)
             .IsRequired();
@@ -24,7 +34,7 @@ public sealed class WorkflowConfiguration : IEntityTypeConfiguration<Workflow>
             .HasMaxLength(50)
             .IsRequired();
 
-        builder.HasIndex(workflow => workflow.Name)
+        builder.HasIndex(workflow => new { workflow.RealmId, workflow.Name })
             .IsUnique();
 
         builder.HasMany(workflow => workflow.Steps)

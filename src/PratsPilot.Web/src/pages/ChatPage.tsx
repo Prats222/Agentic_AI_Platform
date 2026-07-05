@@ -67,8 +67,8 @@ export function ChatPage() {
               <Grid size={12}>
                 <TextField select fullWidth label="Provider" value={provider} onChange={(event) => changeProvider(event.target.value)}>
                   <MenuItem value="Gemini">Gemini</MenuItem>
+                  <MenuItem value="Groq">Groq</MenuItem>
                   <MenuItem value="OpenRouter">OpenRouter</MenuItem>
-                  <MenuItem value="Ollama">Ollama</MenuItem>
                 </TextField>
               </Grid>
               <Grid size={12}>
@@ -81,7 +81,7 @@ export function ChatPage() {
                 </TextField>
                 {provider === 'OpenRouter' && (
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.8 }}>
-                    {models.isError ? 'Using fallback because OpenRouter model lookup failed.' : 'OpenRouter list is live and filtered to free models.'}
+                    OpenRouter uses Auto Free by default. Free model availability can still change or rate limit.
                   </Typography>
                 )}
               </Grid>

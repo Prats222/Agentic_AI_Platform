@@ -22,6 +22,21 @@ namespace AgenticPlatform.Infrastructure.Data.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("AgentContextDocuments", b =>
+                {
+                    b.Property<Guid>("AgentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ContextDocumentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("AgentId", "ContextDocumentId");
+
+                    b.HasIndex("ContextDocumentId");
+
+                    b.ToTable("AgentContextDocuments", (string)null);
+                });
+
             modelBuilder.Entity("AgentTools", b =>
                 {
                     b.Property<Guid>("AgentId")
@@ -69,6 +84,18 @@ namespace AgenticPlatform.Infrastructure.Data.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<string>("DeepSeekApiKey")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("GeminiApiKey")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("GroqApiKey")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
                     b.Property<int>("MaxTokens")
                         .HasColumnType("int");
 
@@ -76,6 +103,10 @@ namespace AgenticPlatform.Infrastructure.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("OpenRouterApiKey")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
 
                     b.Property<string>("Provider")
                         .IsRequired()
@@ -104,11 +135,11 @@ namespace AgenticPlatform.Infrastructure.Data.Migrations
                         new
                         {
                             Id = new Guid("11111111-1111-1111-1111-111111111111"),
-                            BaseUrl = "http://localhost:11434",
+                            BaseUrl = "https://generativelanguage.googleapis.com/v1beta",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 6, 28, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             MaxTokens = 2048,
-                            Model = "llama3.1",
-                            Provider = "Ollama",
+                            Model = "gemini-2.5-flash",
+                            Provider = "Gemini",
                             SystemPrompt = "You are a helpful AI agent.",
                             Temperature = 0.20000000000000001,
                             TopP = 0.90000000000000002
@@ -165,6 +196,12 @@ namespace AgenticPlatform.Infrastructure.Data.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");
 
+                    b.Property<string>("InputSchemaJson")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("nvarchar(max)")
+                        .HasDefaultValue("{}");
+
                     b.Property<string>("ModelConfigJson")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -187,6 +224,11 @@ namespace AgenticPlatform.Infrastructure.Data.Migrations
                     b.Property<string>("ProjectName")
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
+
+                    b.Property<Guid>("RealmId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValue(new Guid("11111111-1111-1111-1111-111111111111"));
 
                     b.Property<string>("Role")
                         .HasMaxLength(150)
@@ -211,7 +253,7 @@ namespace AgenticPlatform.Infrastructure.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Name")
+                    b.HasIndex("RealmId", "Name")
                         .IsUnique();
 
                     b.ToTable("Agents", (string)null);
@@ -222,10 +264,12 @@ namespace AgenticPlatform.Infrastructure.Data.Migrations
                             Id = new Guid("bbbbbbbb-0000-0000-0000-000000000001"),
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 6, 28, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             Description = "Uses global AI settings to answer research-style prompts.",
+                            InputSchemaJson = "{}",
                             ModelConfigJson = "{}",
                             ModelName = "Global default",
                             ModelProvider = "Global",
                             Name = "Demo Research Agent",
+                            RealmId = new Guid("11111111-1111-1111-1111-111111111111"),
                             Status = "Active",
                             UseGlobalAISettings = true
                         },
@@ -235,13 +279,216 @@ namespace AgenticPlatform.Infrastructure.Data.Migrations
                             AISystemPrompt = "You are a concise summarization agent. Return clear, practical summaries.",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 6, 28, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             Description = "Uses global AI settings to turn prior workflow output into a concise summary.",
+                            InputSchemaJson = "{}",
                             ModelConfigJson = "{}",
                             ModelName = "Global default",
                             ModelProvider = "Global",
                             Name = "Demo Summary Agent",
+                            RealmId = new Guid("11111111-1111-1111-1111-111111111111"),
                             Status = "Active",
                             UseGlobalAISettings = true
                         });
+                });
+
+            modelBuilder.Entity("AgenticPlatform.Core.Entities.ArenaChallenge", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("CreatedByDisplayName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("ExpectedOutput")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("JudgeCriteria")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("JudgeSummary")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<Guid>("RealmId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValue(new Guid("11111111-1111-1111-1111-111111111111"));
+
+                    b.Property<string>("Rules")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("ScorecardJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("TaskPrompt")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("WinnerEntryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("RealmId");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("ArenaChallenges", (string)null);
+                });
+
+            modelBuilder.Entity("AgenticPlatform.Core.Entities.ArenaEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AgentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AgentName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<Guid>("ChallengeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<double?>("DurationMs")
+                        .HasColumnType("float");
+
+                    b.Property<string>("Feedback")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("Model")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("Output")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Provider")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<double?>("Score")
+                        .HasColumnType("float");
+
+                    b.Property<string>("SubmittedByDisplayName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<Guid>("SubmittedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AgentId");
+
+                    b.HasIndex("ChallengeId", "AgentId")
+                        .IsUnique();
+
+                    b.ToTable("ArenaEntries", (string)null);
+                });
+
+            modelBuilder.Entity("AgenticPlatform.Core.Entities.ContextDocument", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("ExtractedText")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FileExtension")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("nvarchar(260)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("RealmId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValue(new Guid("11111111-1111-1111-1111-111111111111"));
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("StoragePath")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RealmId");
+
+                    b.ToTable("ContextDocuments", (string)null);
                 });
 
             modelBuilder.Entity("AgenticPlatform.Core.Entities.Execution", b =>
@@ -259,16 +506,42 @@ namespace AgenticPlatform.Infrastructure.Data.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<double?>("DurationMs")
+                        .HasColumnType("float");
+
                     b.Property<string>("ErrorMessage")
                         .HasMaxLength(4000)
                         .HasColumnType("nvarchar(4000)");
+
+                    b.Property<decimal?>("EstimatedCostUsd")
+                        .HasPrecision(18, 8)
+                        .HasColumnType("decimal(18,8)");
+
+                    b.Property<int?>("EstimatedInputTokens")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("EstimatedOutputTokens")
+                        .HasColumnType("int");
 
                     b.Property<string>("InputJson")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("Model")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
                     b.Property<string>("OutputJson")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Provider")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid>("RealmId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValue(new Guid("11111111-1111-1111-1111-111111111111"));
 
                     b.Property<DateTimeOffset?>("StartedAt")
                         .HasColumnType("datetimeoffset");
@@ -297,6 +570,8 @@ namespace AgenticPlatform.Infrastructure.Data.Migrations
                     b.HasIndex("AgentId");
 
                     b.HasIndex("CreatedAt");
+
+                    b.HasIndex("RealmId");
 
                     b.HasIndex("Status");
 
@@ -340,6 +615,111 @@ namespace AgenticPlatform.Infrastructure.Data.Migrations
                     b.HasIndex("ExecutionId", "CreatedAt");
 
                     b.ToTable("ExecutionLogs", (string)null);
+                });
+
+            modelBuilder.Entity("AgenticPlatform.Core.Entities.HumanApprovalRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("ExecutionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Instructions")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<bool>("IsApproved")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsRejected")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTimeOffset?>("ReviewedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("ReviewerComment")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("WorkflowStepId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExecutionId");
+
+                    b.HasIndex("WorkflowStepId");
+
+                    b.ToTable("HumanApprovalRequests", (string)null);
+                });
+
+            modelBuilder.Entity("AgenticPlatform.Core.Entities.Realm", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsAdminOnly")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Realms", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("11111111-1111-1111-1111-111111111111"),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 7, 5, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Description = "Shared workspace visible to all users and admins.",
+                            IsAdminOnly = false,
+                            Name = "User Realm"
+                        },
+                        new
+                        {
+                            Id = new Guid("22222222-2222-2222-2222-222222222222"),
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 7, 5, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Description = "Private administrative workspace for admins only.",
+                            IsAdminOnly = true,
+                            Name = "Admin Realm"
+                        });
                 });
 
             modelBuilder.Entity("AgenticPlatform.Core.Entities.RefreshToken", b =>
@@ -417,12 +797,17 @@ namespace AgenticPlatform.Infrastructure.Data.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
 
+                    b.Property<Guid>("RealmId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValue(new Guid("11111111-1111-1111-1111-111111111111"));
+
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("datetimeoffset");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Name")
+                    b.HasIndex("RealmId", "Name")
                         .IsUnique();
 
                     b.ToTable("Tools", (string)null);
@@ -437,7 +822,8 @@ namespace AgenticPlatform.Infrastructure.Data.Migrations
                             EndpointUrl = "builtin://calculator",
                             InputSchemaJson = "{\"type\":\"object\",\"properties\":{\"expression\":{\"type\":\"string\"}},\"required\":[\"expression\"]}",
                             IsEnabled = true,
-                            Name = "Demo Calculator"
+                            Name = "Demo Calculator",
+                            RealmId = new Guid("11111111-1111-1111-1111-111111111111")
                         },
                         new
                         {
@@ -448,7 +834,8 @@ namespace AgenticPlatform.Infrastructure.Data.Migrations
                             EndpointUrl = "builtin://web-search",
                             InputSchemaJson = "{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\"}},\"required\":[\"query\"]}",
                             IsEnabled = true,
-                            Name = "Demo Web Search"
+                            Name = "Demo Web Search",
+                            RealmId = new Guid("11111111-1111-1111-1111-111111111111")
                         },
                         new
                         {
@@ -459,7 +846,8 @@ namespace AgenticPlatform.Infrastructure.Data.Migrations
                             EndpointUrl = "builtin://file-reader",
                             InputSchemaJson = "{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\"}},\"required\":[\"path\"]}",
                             IsEnabled = true,
-                            Name = "Demo File Reader"
+                            Name = "Demo File Reader",
+                            RealmId = new Guid("11111111-1111-1111-1111-111111111111")
                         });
                 });
 
@@ -481,6 +869,11 @@ namespace AgenticPlatform.Infrastructure.Data.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
 
+                    b.Property<Guid>("RealmId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValue(new Guid("11111111-1111-1111-1111-111111111111"));
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -491,7 +884,7 @@ namespace AgenticPlatform.Infrastructure.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Name")
+                    b.HasIndex("RealmId", "Name")
                         .IsUnique();
 
                     b.ToTable("Workflows", (string)null);
@@ -503,6 +896,7 @@ namespace AgenticPlatform.Infrastructure.Data.Migrations
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 6, 28, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             Description = "Two-step workflow. Step 1 calculates the input expression; step 2 maps the result into a second calculation.",
                             Name = "Demo Calculator Chain",
+                            RealmId = new Guid("11111111-1111-1111-1111-111111111111"),
                             Status = "Active"
                         },
                         new
@@ -511,6 +905,7 @@ namespace AgenticPlatform.Infrastructure.Data.Migrations
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 6, 28, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             Description = "Agent-to-agent workflow. Research agent answers the prompt; summary agent summarizes the prior output.",
                             Name = "Demo Research And Summary",
+                            RealmId = new Guid("11111111-1111-1111-1111-111111111111"),
                             Status = "Active"
                         });
                 });
@@ -889,6 +1284,21 @@ namespace AgenticPlatform.Infrastructure.Data.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("AgentContextDocuments", b =>
+                {
+                    b.HasOne("AgenticPlatform.Core.Entities.Agent", null)
+                        .WithMany()
+                        .HasForeignKey("AgentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("AgenticPlatform.Core.Entities.ContextDocument", null)
+                        .WithMany()
+                        .HasForeignKey("ContextDocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("AgentTools", b =>
                 {
                     b.HasOne("AgenticPlatform.Core.Entities.Agent", null)
@@ -919,6 +1329,58 @@ namespace AgenticPlatform.Infrastructure.Data.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("AgenticPlatform.Core.Entities.Agent", b =>
+                {
+                    b.HasOne("AgenticPlatform.Core.Entities.Realm", "Realm")
+                        .WithMany("Agents")
+                        .HasForeignKey("RealmId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Realm");
+                });
+
+            modelBuilder.Entity("AgenticPlatform.Core.Entities.ArenaChallenge", b =>
+                {
+                    b.HasOne("AgenticPlatform.Core.Entities.Realm", "Realm")
+                        .WithMany("ArenaChallenges")
+                        .HasForeignKey("RealmId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Realm");
+                });
+
+            modelBuilder.Entity("AgenticPlatform.Core.Entities.ArenaEntry", b =>
+                {
+                    b.HasOne("AgenticPlatform.Core.Entities.Agent", "Agent")
+                        .WithMany()
+                        .HasForeignKey("AgentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("AgenticPlatform.Core.Entities.ArenaChallenge", "Challenge")
+                        .WithMany("Entries")
+                        .HasForeignKey("ChallengeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Agent");
+
+                    b.Navigation("Challenge");
+                });
+
+            modelBuilder.Entity("AgenticPlatform.Core.Entities.ContextDocument", b =>
+                {
+                    b.HasOne("AgenticPlatform.Core.Entities.Realm", "Realm")
+                        .WithMany("ContextDocuments")
+                        .HasForeignKey("RealmId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Realm");
+                });
+
             modelBuilder.Entity("AgenticPlatform.Core.Entities.Execution", b =>
                 {
                     b.HasOne("AgenticPlatform.Core.Entities.Agent", "Agent")
@@ -926,12 +1388,20 @@ namespace AgenticPlatform.Infrastructure.Data.Migrations
                         .HasForeignKey("AgentId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("AgenticPlatform.Core.Entities.Realm", "Realm")
+                        .WithMany("Executions")
+                        .HasForeignKey("RealmId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("AgenticPlatform.Core.Entities.Workflow", "Workflow")
                         .WithMany("Executions")
                         .HasForeignKey("WorkflowId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Agent");
+
+                    b.Navigation("Realm");
 
                     b.Navigation("Workflow");
                 });
@@ -947,6 +1417,25 @@ namespace AgenticPlatform.Infrastructure.Data.Migrations
                     b.Navigation("Execution");
                 });
 
+            modelBuilder.Entity("AgenticPlatform.Core.Entities.HumanApprovalRequest", b =>
+                {
+                    b.HasOne("AgenticPlatform.Core.Entities.Execution", "Execution")
+                        .WithMany("HumanApprovalRequests")
+                        .HasForeignKey("ExecutionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("AgenticPlatform.Core.Entities.WorkflowStep", "WorkflowStep")
+                        .WithMany()
+                        .HasForeignKey("WorkflowStepId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Execution");
+
+                    b.Navigation("WorkflowStep");
+                });
+
             modelBuilder.Entity("AgenticPlatform.Core.Entities.RefreshToken", b =>
                 {
                     b.HasOne("AgenticPlatform.Infrastructure.Identity.ApplicationUser", null)
@@ -954,6 +1443,28 @@ namespace AgenticPlatform.Infrastructure.Data.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("AgenticPlatform.Core.Entities.Tool", b =>
+                {
+                    b.HasOne("AgenticPlatform.Core.Entities.Realm", "Realm")
+                        .WithMany("Tools")
+                        .HasForeignKey("RealmId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Realm");
+                });
+
+            modelBuilder.Entity("AgenticPlatform.Core.Entities.Workflow", b =>
+                {
+                    b.HasOne("AgenticPlatform.Core.Entities.Realm", "Realm")
+                        .WithMany("Workflows")
+                        .HasForeignKey("RealmId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Realm");
                 });
 
             modelBuilder.Entity("AgenticPlatform.Core.Entities.WorkflowStep", b =>
@@ -1039,9 +1550,31 @@ namespace AgenticPlatform.Infrastructure.Data.Migrations
                     b.Navigation("WorkflowSteps");
                 });
 
+            modelBuilder.Entity("AgenticPlatform.Core.Entities.ArenaChallenge", b =>
+                {
+                    b.Navigation("Entries");
+                });
+
             modelBuilder.Entity("AgenticPlatform.Core.Entities.Execution", b =>
                 {
+                    b.Navigation("HumanApprovalRequests");
+
                     b.Navigation("Logs");
+                });
+
+            modelBuilder.Entity("AgenticPlatform.Core.Entities.Realm", b =>
+                {
+                    b.Navigation("Agents");
+
+                    b.Navigation("ArenaChallenges");
+
+                    b.Navigation("ContextDocuments");
+
+                    b.Navigation("Executions");
+
+                    b.Navigation("Tools");
+
+                    b.Navigation("Workflows");
                 });
 
             modelBuilder.Entity("AgenticPlatform.Core.Entities.Tool", b =>

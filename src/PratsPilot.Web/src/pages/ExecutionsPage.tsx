@@ -14,6 +14,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
+import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ReplayIcon from '@mui/icons-material/Replay'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -142,6 +143,9 @@ export function ExecutionsPage() {
                   <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
                     <Typography variant="h6">Final Output</Typography>
                     <Stack direction="row" sx={{ gap: 1, alignItems: 'center' }}>
+                      <Button size="small" variant="outlined" startIcon={<ContentCopyIcon />} onClick={() => navigator.clipboard.writeText(parsed.finalText)}>
+                        Copy
+                      </Button>
                       <Chip size="small" color={selected.status === 'Completed' ? 'success' : selected.status === 'Failed' ? 'error' : 'primary'} label={selected.status} />
                       {selected.status === 'Failed' && (
                         <Button size="small" variant="contained" startIcon={<ReplayIcon />} onClick={() => retry.mutate(selected.id)} disabled={retry.isPending}>
@@ -151,9 +155,37 @@ export function ExecutionsPage() {
                     </Stack>
                   </Stack>
                   {selected.errorMessage && <Alert severity="error" sx={{ mt: 1.5 }}>{selected.errorMessage}</Alert>}
-                  <Typography sx={{ mt: 1.5, whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
+                  <Typography
+                    component="pre"
+                    sx={{
+                      mt: 1.5,
+                      whiteSpace: 'pre-wrap',
+                      overflow: 'auto',
+                      maxHeight: 520,
+                      p: 1.5,
+                      borderRadius: 1.5,
+                      bgcolor: 'background.default',
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      fontFamily: 'ui-monospace, Consolas, monospace',
+                      fontSize: 14,
+                      lineHeight: 1.7,
+                    }}
+                  >
                     {parsed.finalText || 'No final output has been persisted yet.'}
                   </Typography>
+                </Paper>
+
+                <Paper variant="outlined" sx={{ p: 2 }}>
+                  <Typography variant="h6" sx={{ mb: 1 }}>Cost and Latency</Typography>
+                  <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap' }}>
+                    <Chip label={`Duration: ${selected.durationMs ? `${Math.round(selected.durationMs)} ms` : 'n/a'}`} />
+                    <Chip label={`Provider: ${selected.provider ?? 'n/a'}`} />
+                    <Chip label={`Model: ${selected.model ?? 'n/a'}`} />
+                    <Chip label={`Input tokens: ${selected.estimatedInputTokens ?? 'n/a'}`} />
+                    <Chip label={`Output tokens: ${selected.estimatedOutputTokens ?? 'n/a'}`} />
+                    <Chip label={`Cost: ${selected.estimatedCostUsd ? `$${selected.estimatedCostUsd}` : 'n/a'}`} />
+                  </Stack>
                 </Paper>
 
                 {parsed.steps.length > 0 && (
@@ -171,7 +203,20 @@ export function ExecutionsPage() {
                           <AccordionDetails>
                             {step.error && <Alert severity="error" sx={{ mb: 1.2 }}>{step.error}</Alert>}
                             <Typography variant="body2" color="text.secondary" sx={{ mb: 0.8 }}>Output</Typography>
-                            <Typography sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
+                            <Typography
+                              component="pre"
+                              sx={{
+                                whiteSpace: 'pre-wrap',
+                                overflow: 'auto',
+                                maxHeight: 420,
+                                p: 1.2,
+                                borderRadius: 1.2,
+                                bgcolor: 'background.default',
+                                fontFamily: 'ui-monospace, Consolas, monospace',
+                                fontSize: 13,
+                                lineHeight: 1.65,
+                              }}
+                            >
                               {extractText(step.output) || formatValue(step.output)}
                             </Typography>
                             <Accordion sx={{ mt: 1.5 }}>
@@ -247,8 +292,9 @@ function parseExecutionOutput(execution: Execution): ParsedExecutionOutput {
   }
 
   const record = parsed as Record<string, unknown>
-  const finalJson = record.finalOutput ?? record.output ?? parsed
   const steps = Array.isArray(record.steps) ? (record.steps as WorkflowStepOutput[]) : []
+  const lastSubstantiveStep = [...steps].reverse().find((step) => step.stepType !== 'HumanApproval' && !step.error)
+  const finalJson = record.finalOutput ?? lastSubstantiveStep?.output ?? record.output ?? parsed
 
   return {
     finalText: extractText(finalJson),

@@ -6,6 +6,7 @@ using AgenticPlatform.Core.Entities;
 using AgenticPlatform.Core.Enums;
 using AgenticPlatform.Core.Interfaces;
 using AgenticPlatform.Core.Queries;
+using AgenticPlatform.API.Realms;
 using Asp.Versioning;
 using AutoMapper;
 using AutoMapper.QueryableExtensions;
@@ -31,13 +32,19 @@ public sealed class WorkflowsController : ControllerBase
     }
 
     [HttpGet]
-    [ResponseCache(Duration = 30, Location = ResponseCacheLocation.Any, VaryByQueryKeys = ["*"])]
+    [ResponseCache(Duration = 30, Location = ResponseCacheLocation.Any, VaryByQueryKeys = ["*"], VaryByHeader = RealmAccess.HeaderName)]
     [ProducesResponseType(typeof(ApiResponse<PagedResult<WorkflowDto>>), StatusCodes.Status200OK)]
     public async Task<ActionResult<ApiResponse<PagedResult<WorkflowDto>>>> GetWorkflows(
         [FromQuery] WorkflowQueryParameters queryParameters,
         CancellationToken cancellationToken)
     {
-        var query = _unitOfWork.Workflows.Query().AsNoTracking();
+        var realmId = RealmAccess.ResolveRealmId(this);
+        if (!RealmAccess.CanAccessRealm(this, realmId))
+        {
+            return Forbid();
+        }
+
+        var query = _unitOfWork.Workflows.Query().AsNoTracking().InRealm(realmId);
 
         if (!string.IsNullOrWhiteSpace(queryParameters.Name))
         {
@@ -68,12 +75,20 @@ public sealed class WorkflowsController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
-    [ResponseCache(Duration = 30, Location = ResponseCacheLocation.Any)]
+    [ResponseCache(Duration = 30, Location = ResponseCacheLocation.Any, VaryByHeader = RealmAccess.HeaderName)]
     [ProducesResponseType(typeof(ApiResponse<WorkflowDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<WorkflowDto>), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ApiResponse<WorkflowDto>>> GetWorkflow(Guid id, CancellationToken cancellationToken)
     {
-        var workflow = await _unitOfWork.Workflows.GetWithStepsAsync(id, cancellationToken);
+        var realmId = RealmAccess.ResolveRealmId(this);
+        if (!RealmAccess.CanAccessRealm(this, realmId))
+        {
+            return Forbid();
+        }
+
+        var workflow = await _unitOfWork.Workflows.Query()
+            .Include(item => item.Steps.OrderBy(step => step.Order))
+            .FirstOrDefaultAsync(item => item.Id == id && item.RealmId == realmId, cancellationToken);
         if (workflow is null)
         {
             return NotFound(ApiResponse<WorkflowDto>.Fail("Workflow was not found."));
@@ -90,12 +105,19 @@ public sealed class WorkflowsController : ControllerBase
         CreateWorkflowDto request,
         CancellationToken cancellationToken)
     {
-        if (await _unitOfWork.Workflows.AnyAsync(workflow => workflow.Name == request.Name, cancellationToken))
+        var realmId = RealmAccess.ResolveRealmId(this);
+        if (!RealmAccess.CanAccessRealm(this, realmId))
+        {
+            return Forbid();
+        }
+
+        if (await _unitOfWork.Workflows.AnyAsync(workflow => workflow.RealmId == realmId && workflow.Name == request.Name, cancellationToken))
         {
             return Conflict(ApiResponse<WorkflowDto>.Fail("A workflow with this name already exists."));
         }
 
         var workflow = _mapper.Map<Workflow>(request);
+        workflow.RealmId = realmId;
         await _unitOfWork.Workflows.AddAsync(workflow, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -117,14 +139,14 @@ public sealed class WorkflowsController : ControllerBase
     {
         var workflow = await _unitOfWork.Workflows.Query()
             .Include(item => item.Agents)
-            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+            .FirstOrDefaultAsync(item => item.Id == id && item.RealmId == RealmAccess.ResolveRealmId(this), cancellationToken);
         if (workflow is null)
         {
             return NotFound(ApiResponse<WorkflowDto>.Fail("Workflow was not found."));
         }
 
         var nameConflict = await _unitOfWork.Workflows.AnyAsync(
-            existingWorkflow => existingWorkflow.Id != id && existingWorkflow.Name == request.Name,
+            existingWorkflow => existingWorkflow.RealmId == workflow.RealmId && existingWorkflow.Id != id && existingWorkflow.Name == request.Name,
             cancellationToken);
 
         if (nameConflict)
@@ -145,7 +167,8 @@ public sealed class WorkflowsController : ControllerBase
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteWorkflow(Guid id, CancellationToken cancellationToken)
     {
-        var workflow = await _unitOfWork.Workflows.GetByIdAsync(id, cancellationToken);
+        var workflow = await _unitOfWork.Workflows.Query()
+            .FirstOrDefaultAsync(item => item.Id == id && item.RealmId == RealmAccess.ResolveRealmId(this), cancellationToken);
         if (workflow is null)
         {
             return NotFound(ApiResponse<object>.Fail("Workflow was not found."));
@@ -162,6 +185,15 @@ public sealed class WorkflowsController : ControllerBase
             .ToListAsync(cancellationToken);
 
         var executionIds = executions.Select(execution => execution.Id).ToArray();
+        var stepIds = steps.Select(step => step.Id).ToArray();
+
+        var approvalRequests = stepIds.Length == 0 && executionIds.Length == 0
+            ? new List<HumanApprovalRequest>()
+            : await _unitOfWork.Repository<HumanApprovalRequest>()
+                .Query()
+                .Where(approval => stepIds.Contains(approval.WorkflowStepId) || executionIds.Contains(approval.ExecutionId))
+                .ToListAsync(cancellationToken);
+
         var executionLogs = executionIds.Length == 0
             ? new List<ExecutionLog>()
             : await _unitOfWork.Repository<ExecutionLog>()
@@ -169,6 +201,7 @@ public sealed class WorkflowsController : ControllerBase
                 .Where(log => executionIds.Contains(log.ExecutionId))
                 .ToListAsync(cancellationToken);
 
+        _unitOfWork.Repository<HumanApprovalRequest>().RemoveRange(approvalRequests);
         _unitOfWork.Repository<ExecutionLog>().RemoveRange(executionLogs);
         _unitOfWork.Repository<Execution>().RemoveRange(executions);
         _unitOfWork.Repository<WorkflowStep>().RemoveRange(steps);
@@ -198,7 +231,13 @@ public sealed class WorkflowsController : ControllerBase
         CreateWorkflowStepDto request,
         CancellationToken cancellationToken)
     {
-        if (!await _unitOfWork.Workflows.AnyAsync(workflow => workflow.Id == workflowId, cancellationToken))
+        var realmId = RealmAccess.ResolveRealmId(this);
+        if (!RealmAccess.CanAccessRealm(this, realmId))
+        {
+            return Forbid();
+        }
+
+        if (!await _unitOfWork.Workflows.AnyAsync(workflow => workflow.Id == workflowId && workflow.RealmId == realmId, cancellationToken))
         {
             return NotFound(ApiResponse<WorkflowStepDto>.Fail("Workflow was not found."));
         }
@@ -236,7 +275,7 @@ public sealed class WorkflowsController : ControllerBase
     }
 
     [HttpGet("{workflowId:guid}/steps/{stepId:guid}")]
-    [ResponseCache(Duration = 30, Location = ResponseCacheLocation.Any)]
+    [ResponseCache(Duration = 30, Location = ResponseCacheLocation.Any, VaryByHeader = RealmAccess.HeaderName)]
     [ProducesResponseType(typeof(ApiResponse<WorkflowStepDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<WorkflowStepDto>), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ApiResponse<WorkflowStepDto>>> GetWorkflowStep(
@@ -245,7 +284,7 @@ public sealed class WorkflowsController : ControllerBase
         CancellationToken cancellationToken)
     {
         var step = await _unitOfWork.Repository<WorkflowStep>().FirstOrDefaultAsync(
-            workflowStep => workflowStep.WorkflowId == workflowId && workflowStep.Id == stepId,
+            workflowStep => workflowStep.WorkflowId == workflowId && workflowStep.Id == stepId && workflowStep.Workflow!.RealmId == RealmAccess.ResolveRealmId(this),
             cancellationToken);
 
         if (step is null)
@@ -269,7 +308,7 @@ public sealed class WorkflowsController : ControllerBase
         CancellationToken cancellationToken)
     {
         var step = await _unitOfWork.Repository<WorkflowStep>().FirstOrDefaultAsync(
-            workflowStep => workflowStep.WorkflowId == workflowId && workflowStep.Id == stepId,
+            workflowStep => workflowStep.WorkflowId == workflowId && workflowStep.Id == stepId && workflowStep.Workflow!.RealmId == RealmAccess.ResolveRealmId(this),
             cancellationToken);
 
         if (step is null)
@@ -311,7 +350,7 @@ public sealed class WorkflowsController : ControllerBase
         CancellationToken cancellationToken)
     {
         var step = await _unitOfWork.Repository<WorkflowStep>().FirstOrDefaultAsync(
-            workflowStep => workflowStep.WorkflowId == workflowId && workflowStep.Id == stepId,
+            workflowStep => workflowStep.WorkflowId == workflowId && workflowStep.Id == stepId && workflowStep.Workflow!.RealmId == RealmAccess.ResolveRealmId(this),
             cancellationToken);
 
         if (step is null)
@@ -319,6 +358,12 @@ public sealed class WorkflowsController : ControllerBase
             return NotFound(ApiResponse<object>.Fail("Workflow step was not found."));
         }
 
+        var approvalRequests = await _unitOfWork.Repository<HumanApprovalRequest>()
+            .Query()
+            .Where(approval => approval.WorkflowStepId == stepId)
+            .ToListAsync(cancellationToken);
+
+        _unitOfWork.Repository<HumanApprovalRequest>().RemoveRange(approvalRequests);
         _unitOfWork.Repository<WorkflowStep>().Remove(step);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -332,13 +377,13 @@ public sealed class WorkflowsController : ControllerBase
         CancellationToken cancellationToken)
     {
         if (stepType == WorkflowStepType.Tool
-            && (!toolId.HasValue || !await _unitOfWork.Tools.AnyAsync(tool => tool.Id == toolId.Value, cancellationToken)))
+            && (!toolId.HasValue || !await _unitOfWork.Tools.AnyAsync(tool => tool.Id == toolId.Value && tool.RealmId == RealmAccess.ResolveRealmId(this), cancellationToken)))
         {
             return "Tool target was not found.";
         }
 
         if (stepType == WorkflowStepType.Agent
-            && (!agentId.HasValue || !await _unitOfWork.Agents.AnyAsync(agent => agent.Id == agentId.Value, cancellationToken)))
+            && (!agentId.HasValue || !await _unitOfWork.Agents.AnyAsync(agent => agent.Id == agentId.Value && agent.RealmId == RealmAccess.ResolveRealmId(this), cancellationToken)))
         {
             return "Agent target was not found.";
         }

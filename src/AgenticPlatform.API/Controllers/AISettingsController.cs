@@ -78,28 +78,11 @@ public sealed class AISettingsController : ControllerBase
     [AllowAnonymous]
     [ResponseCache(Duration = 300, Location = ResponseCacheLocation.Any, VaryByQueryKeys = new[] { "provider", "freeOnly" })]
     [ProducesResponseType(typeof(ApiResponse<IReadOnlyList<LLMModelDto>>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<ApiResponse<IReadOnlyList<LLMModelDto>>>> GetModels(
+    public ActionResult<ApiResponse<IReadOnlyList<LLMModelDto>>> GetModels(
         [FromQuery] string provider,
-        [FromQuery] bool freeOnly = true,
-        CancellationToken cancellationToken = default)
+        [FromQuery] bool freeOnly = true)
     {
         var models = GetStaticModels(provider, freeOnly);
-        if (provider.Equals("OpenRouter", StringComparison.OrdinalIgnoreCase))
-        {
-            try
-            {
-                models = await GetOpenRouterModelsAsync(freeOnly, cancellationToken);
-            }
-            catch (HttpRequestException)
-            {
-                models = GetStaticModels(provider, freeOnly);
-            }
-            catch (TaskCanceledException)
-            {
-                models = GetStaticModels(provider, freeOnly);
-            }
-        }
-
         return Ok(ApiResponse<IReadOnlyList<LLMModelDto>>.Ok(models));
     }
 
@@ -224,21 +207,22 @@ public sealed class AISettingsController : ControllerBase
             "gemini" => new[]
             {
                 StaticModel("Gemini", "gemini-2.5-flash", "Gemini 2.5 Flash"),
-                StaticModel("Gemini", "gemini-2.5-pro", "Gemini 2.5 Pro"),
+                StaticModel("Gemini", "gemini-2.0-flash-lite", "Gemini 2.0 Flash Lite"),
                 StaticModel("Gemini", "gemini-2.0-flash", "Gemini 2.0 Flash"),
-                StaticModel("Gemini", "gemini-2.0-flash-lite", "Gemini 2.0 Flash Lite")
-            },
-            "ollama" => new[]
-            {
-                StaticModel("Ollama", "llama3.1", "Llama 3.1"),
-                StaticModel("Ollama", "llama3.2", "Llama 3.2"),
-                StaticModel("Ollama", "qwen2.5", "Qwen 2.5"),
-                StaticModel("Ollama", "mistral", "Mistral"),
-                StaticModel("Ollama", "deepseek-r1", "DeepSeek R1")
+                StaticModel("Gemini", "gemini-2.5-pro", "Gemini 2.5 Pro"),
             },
             "openrouter" => new[]
             {
-                StaticModel("OpenRouter", "openrouter/free", "Free Models Router")
+                StaticModel("OpenRouter", "openrouter/free", "OpenRouter Auto Free"),
+                StaticModel("OpenRouter", "google/gemma-4-31b-it:free", "Gemma 4 31B Free"),
+                StaticModel("OpenRouter", "google/gemma-4-26b-a4b-it:free", "Gemma 4 26B Free"),
+                StaticModel("OpenRouter", "qwen/qwen3-coder:free", "Qwen3 Coder Free")
+            },
+            "groq" => new[]
+            {
+                StaticModel("Groq", "llama-3.1-8b-instant", "Llama 3.1 8B Instant"),
+                StaticModel("Groq", "llama-3.3-70b-versatile", "Llama 3.3 70B Versatile"),
+                StaticModel("Groq", "qwen/qwen3-32b", "Qwen3 32B")
             },
             _ => Array.Empty<LLMModelDto>()
         };

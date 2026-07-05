@@ -86,21 +86,26 @@ export function AISettingsPage() {
   const modelOptions = liveModelOptions.length ? liveModelOptions.map((model) => model.id) : fallbackOptions
   const allModelOptions = modelOptions.length ? modelOptions : [form.model].filter(Boolean)
   const modelLabels = new Map(liveModelOptions.map((model) => [model.id, model.name]))
+  const providerHasKey =
+    form.provider === 'Gemini' ? settings.data?.hasGeminiApiKey :
+    form.provider === 'OpenRouter' ? settings.data?.hasOpenRouterApiKey :
+    form.provider === 'Groq' ? settings.data?.hasGroqApiKey :
+    settings.data?.hasApiKey
 
   return (
     <Box>
       <SectionHeader
         eyebrow="Provider Control"
         title="Global AI settings"
-        action={<Chip color={settings.data?.hasApiKey ? 'success' : 'warning'} label={settings.data?.hasApiKey ? 'API key stored' : 'No API key stored'} />}
+        action={<Chip color={providerHasKey ? 'success' : 'warning'} label={providerHasKey ? `${form.provider} key stored` : `No ${form.provider} key stored`} />}
       />
       <Paper sx={{ p: 3 }}>
         <Grid container spacing={2.4}>
           <Grid size={{ xs: 12, md: 4 }}>
             <TextField select label="Provider" value={form.provider} onChange={(event) => setProvider(event.target.value)} fullWidth>
               <MenuItem value="Gemini">Gemini</MenuItem>
+              <MenuItem value="Groq">Groq</MenuItem>
               <MenuItem value="OpenRouter">OpenRouter</MenuItem>
-              <MenuItem value="Ollama">Ollama</MenuItem>
             </TextField>
           </Grid>
           <Grid size={{ xs: 12, md: 4 }}>
@@ -113,7 +118,12 @@ export function AISettingsPage() {
             </TextField>
             {form.provider === 'OpenRouter' && (
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.8 }}>
-                {models.isError ? 'Using fallback because OpenRouter model lookup failed.' : 'OpenRouter list is live and filtered to free models.'}
+                Defaults to OpenRouter Auto Free. Free models are best-effort and can still be rate limited upstream.
+              </Typography>
+            )}
+            {form.provider === 'Groq' && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.8 }}>
+                Groq is fast and has a free developer tier, but rate limits still apply.
               </Typography>
             )}
           </Grid>

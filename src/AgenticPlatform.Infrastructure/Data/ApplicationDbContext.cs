@@ -15,11 +15,16 @@ public sealed class ApplicationDbContext : IdentityDbContext<ApplicationUser, Id
     }
 
     public DbSet<Agent> Agents => Set<Agent>();
+    public DbSet<Realm> Realms => Set<Realm>();
     public DbSet<Workflow> Workflows => Set<Workflow>();
     public DbSet<WorkflowStep> WorkflowSteps => Set<WorkflowStep>();
     public DbSet<Tool> Tools => Set<Tool>();
     public DbSet<Execution> Executions => Set<Execution>();
     public DbSet<ExecutionLog> ExecutionLogs => Set<ExecutionLog>();
+    public DbSet<ContextDocument> ContextDocuments => Set<ContextDocument>();
+    public DbSet<HumanApprovalRequest> HumanApprovalRequests => Set<HumanApprovalRequest>();
+    public DbSet<ArenaChallenge> ArenaChallenges => Set<ArenaChallenge>();
+    public DbSet<ArenaEntry> ArenaEntries => Set<ArenaEntry>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<AISettings> AISettings => Set<AISettings>();
 

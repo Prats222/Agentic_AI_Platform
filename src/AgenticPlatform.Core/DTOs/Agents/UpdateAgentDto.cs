@@ -14,6 +14,7 @@ public sealed class UpdateAgentDto
     public string ModelProvider { get; set; } = string.Empty;
     public string ModelName { get; set; } = string.Empty;
     public string ModelConfigJson { get; set; } = "{}";
+    public string InputSchemaJson { get; set; } = "{}";
     public bool UseGlobalAISettings { get; set; } = true;
     public AIProvider? AIProvider { get; set; }
     public string? AIModel { get; set; }

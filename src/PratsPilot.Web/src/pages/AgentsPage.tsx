@@ -15,9 +15,11 @@ export function AgentsPage() {
   const queryClient = useQueryClient()
   const agents = useQuery({ queryKey: ['agents'], queryFn: apiClient.getAgents })
   const tools = useQuery({ queryKey: ['tools'], queryFn: apiClient.getTools })
+  const contextDocuments = useQuery({ queryKey: ['contextDocuments'], queryFn: apiClient.getContextDocuments })
   const [projectFilter, setProjectFilter] = useState('')
   const [editingAgentId, setEditingAgentId] = useState<string | undefined>()
   const [selectedToolIds, setSelectedToolIds] = useState<string[]>([])
+  const [selectedContextDocumentIds, setSelectedContextDocumentIds] = useState<string[]>([])
   const [form, setForm] = useState({
     name: '',
     projectName: '',
@@ -54,6 +56,7 @@ export function AgentsPage() {
     mutationFn: async () => {
       const agent = await apiClient.createAgent(buildAgentRequest(form))
       await apiClient.setAgentTools(agent.id, selectedToolIds)
+      await apiClient.setAgentContextDocuments(agent.id, selectedContextDocumentIds)
       return agent
     },
     onSuccess: () => {
@@ -66,6 +69,7 @@ export function AgentsPage() {
     mutationFn: async () => {
       const agent = await apiClient.updateAgent(editingAgentId!, buildAgentRequest(form))
       await apiClient.setAgentTools(agent.id, selectedToolIds)
+      await apiClient.setAgentContextDocuments(agent.id, selectedContextDocumentIds)
       return agent
     },
     onSuccess: () => {
@@ -106,6 +110,7 @@ export function AgentsPage() {
       useGlobalAISettings: true,
     }))
     setSelectedToolIds([])
+    setSelectedContextDocumentIds([])
   }
 
   function editAgent(agent: Agent) {
@@ -125,6 +130,7 @@ export function AgentsPage() {
       aiTemperature: 0.2,
     })
     setSelectedToolIds(agent.toolIds ?? [])
+    setSelectedContextDocumentIds(agent.contextDocumentIds ?? [])
   }
 
   const liveModelOptions = models.data?.filter((model) => model.provider === form.aiProvider) ?? []
@@ -134,6 +140,8 @@ export function AgentsPage() {
   const modelLabels = new Map(liveModelOptions.map((model) => [model.id, model.name]))
   const toolOptions = useMemo(() => sortTools(tools.data?.items ?? []), [tools.data])
   const selectedTools = toolOptions.filter((tool) => selectedToolIds.includes(tool.id))
+  const selectedContextDocuments = (contextDocuments.data ?? []).filter((document) => selectedContextDocumentIds.includes(document.id))
+  const inputFields = extractInputFields([form.description, form.goal, form.expectedOutput].join('\n'))
 
   return (
     <Box>
@@ -150,13 +158,13 @@ export function AgentsPage() {
             <TextField label="Role" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} fullWidth />
           </Grid>
           <Grid size={{ xs: 12, md: 6 }}>
-            <TextField label="Goal" value={form.goal} onChange={(e) => setForm({ ...form, goal: e.target.value })} multiline minRows={3} fullWidth />
+            <TextField label="Goal" value={form.goal} onChange={(e) => setForm({ ...form, goal: e.target.value })} multiline minRows={3} fullWidth helperText="Use {{fieldName}} to request dynamic input fields." />
           </Grid>
           <Grid size={{ xs: 12, md: 6 }}>
-            <TextField label="Expected Output" value={form.expectedOutput} onChange={(e) => setForm({ ...form, expectedOutput: e.target.value })} multiline minRows={3} fullWidth />
+            <TextField label="Expected Output" value={form.expectedOutput} onChange={(e) => setForm({ ...form, expectedOutput: e.target.value })} multiline minRows={3} fullWidth helperText="Example: summarize {{documentTopic}} for {{audience}}." />
           </Grid>
           <Grid size={{ xs: 12, md: 6 }}>
-            <TextField label="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} fullWidth />
+            <TextField label="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} fullWidth helperText={inputFields.length ? `Input fields: ${inputFields.join(', ')}` : 'Type {{ to define custom input fields.'} />
           </Grid>
           <Grid size={{ xs: 12, md: 6 }}>
             <TextField label="Tags" value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} fullWidth placeholder="qa, playwright, regression" />
@@ -172,8 +180,8 @@ export function AgentsPage() {
               <Grid size={{ xs: 12, md: 4 }}>
                 <TextField select label="Provider" value={form.aiProvider} onChange={(e) => setProvider(e.target.value)} fullWidth>
                   <MenuItem value="Gemini">Gemini</MenuItem>
+                  <MenuItem value="Groq">Groq</MenuItem>
                   <MenuItem value="OpenRouter">OpenRouter</MenuItem>
-                  <MenuItem value="Ollama">Ollama</MenuItem>
                 </TextField>
               </Grid>
               <Grid size={{ xs: 12, md: 4 }}>
@@ -186,7 +194,7 @@ export function AgentsPage() {
                 </TextField>
                 {form.aiProvider === 'OpenRouter' && (
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.8 }}>
-                    {models.isError ? 'Using fallback because OpenRouter model lookup failed.' : 'OpenRouter list is live and filtered to free models.'}
+                    OpenRouter uses Auto Free by default. Free model availability can still change or rate limit.
                   </Typography>
                 )}
               </Grid>
@@ -228,6 +236,28 @@ export function AgentsPage() {
                   label="Search and select tools"
                   placeholder={selectedTools.length ? '' : 'Calculator, PythonScript, WebSearch...'}
                   helperText="Built-in tools stay at the top; custom tools are searchable below."
+                />
+              )}
+            />
+          </Grid>
+          <Grid size={12}>
+            <Typography variant="body2" sx={{ fontWeight: 900, mb: 1 }}>
+              Context Documents
+            </Typography>
+            <Autocomplete
+              multiple
+              loading={contextDocuments.isLoading}
+              options={contextDocuments.data ?? []}
+              value={selectedContextDocuments}
+              getOptionLabel={(option) => `${option.name} (${option.fileExtension})`}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              onChange={(_, value) => setSelectedContextDocumentIds(value.map((document) => document.id))}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Attach context documents"
+                  placeholder={selectedContextDocuments.length ? '' : 'Project docs, specs, PDFs, Markdown...'}
+                  helperText="Upload documents in Context Library, then attach them here."
                 />
               )}
             />
@@ -286,6 +316,11 @@ export function AgentsPage() {
                 {(row.toolNames ?? []).length > 0 && (
                   <Typography variant="caption" color="text.secondary">
                     Tools: {row.toolNames.join(', ')}
+                  </Typography>
+                )}
+                {(row.contextDocumentNames ?? []).length > 0 && (
+                  <Typography variant="caption" color="text.secondary">
+                    Context: {row.contextDocumentNames.join(', ')}
                   </Typography>
                 )}
               </Stack>
@@ -355,6 +390,7 @@ function buildAgentRequest(form: {
     modelProvider: form.useGlobalAISettings ? 'Global' : form.aiProvider,
     modelName: form.useGlobalAISettings ? 'Global default' : form.aiModel,
     modelConfigJson: '{}',
+    inputSchemaJson: buildInputSchema([form.description, form.goal, form.expectedOutput].join('\n')),
     aiProvider: form.useGlobalAISettings ? undefined : form.aiProvider,
     aiModel: form.useGlobalAISettings ? undefined : form.aiModel,
     aiBaseUrl: form.useGlobalAISettings ? undefined : form.aiBaseUrl,
@@ -364,6 +400,21 @@ function buildAgentRequest(form: {
     aiSystemPrompt: buildSystemPrompt(form.role, form.goal, form.expectedOutput),
     status: 'Active',
   }
+}
+
+function extractInputFields(value: string) {
+  return Array.from(value.matchAll(/\{\{\s*([a-zA-Z][a-zA-Z0-9_]*)\s*\}\}/g))
+    .map((match) => match[1])
+    .filter((field, index, fields) => fields.indexOf(field) === index)
+}
+
+function buildInputSchema(value: string) {
+  const fields = extractInputFields(value)
+  return JSON.stringify({
+    type: 'object',
+    properties: Object.fromEntries(fields.map((field) => [field, { type: 'string' }])),
+    required: fields,
+  })
 }
 
 function buildSystemPrompt(role?: string, goal?: string, expectedOutput?: string) {

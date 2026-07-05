@@ -12,7 +12,7 @@ import { SectionHeader } from '../components/SectionHeader'
 
 type BuilderStep = {
   id: string
-  type: 'Agent' | 'Tool'
+  type: 'Agent' | 'Tool' | 'HumanApproval'
   name: string
 }
 
@@ -55,7 +55,9 @@ export function WorkflowsPage() {
           agentId: step.type === 'Agent' ? step.id : undefined,
           toolId: step.type === 'Tool' ? step.id : undefined,
           inputMappingJson: index === 0 ? '{"source":"original"}' : '{}',
-          configurationJson: '{}',
+          configurationJson: step.type === 'HumanApproval'
+            ? '{"instructions":"Review this output before the workflow continues."}'
+            : '{}',
           continueOnError: false,
         })
       }
@@ -122,6 +124,7 @@ export function WorkflowsPage() {
             <Typography variant="h5">Agent and Tool Search</Typography>
             <TextField label="Search by project, role, tag, category" value={search} onChange={(e) => setSearch(e.target.value)} fullWidth sx={{ my: 2 }} />
             <Stack spacing={1.2}>
+              <StepCard id="human-approval" type="HumanApproval" name="Human Approval Gate" meta="Pause workflow for review" onDragStart={dragStart} />
               {searchableAgents.map((agent) => (
                 <StepCard key={agent.id} id={agent.id} type="Agent" name={agent.name} meta={agent.projectName || agent.role || 'Agent'} onDragStart={dragStart} />
               ))}
@@ -161,7 +164,7 @@ export function WorkflowsPage() {
                 <Stack spacing={1.2}>
                   {steps.map((step, index) => (
                     <Box key={`${step.type}-${step.id}-${index}`} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Chip color={step.type === 'Agent' ? 'primary' : 'secondary'} label={`${index + 1}. ${step.type}`} />
+                      <Chip color={step.type === 'Agent' ? 'primary' : step.type === 'Tool' ? 'secondary' : 'warning'} label={`${index + 1}. ${step.type}`} />
                       <Typography sx={{ flex: 1, fontWeight: 800 }}>{step.name}</Typography>
                       <Button size="small" onClick={() => setSteps((current) => current.filter((_, itemIndex) => itemIndex !== index))}>
                         Remove
@@ -261,7 +264,7 @@ function StepCard({
   onDragStart,
 }: {
   id: string
-  type: 'Agent' | 'Tool'
+  type: 'Agent' | 'Tool' | 'HumanApproval'
   name: string
   meta: string
   onDragStart: (event: DragEvent, step: BuilderStep) => void
@@ -280,7 +283,7 @@ function StepCard({
       }}
     >
       <Stack direction="row" sx={{ gap: 1, alignItems: 'center' }}>
-        <Chip size="small" label={type} color={type === 'Agent' ? 'primary' : 'secondary'} />
+        <Chip size="small" label={type} color={type === 'Agent' ? 'primary' : type === 'Tool' ? 'secondary' : 'warning'} />
         <Box>
           <Typography sx={{ fontWeight: 900 }}>{name}</Typography>
           <Typography variant="caption" color="text.secondary">

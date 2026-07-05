@@ -61,12 +61,7 @@ Then create/update the local database with:
 dotnet tool run dotnet-ef database update --project src/AgenticPlatform.Infrastructure --startup-project src/AgenticPlatform.API
 ```
 
-Seeded admin user:
-
-```text
-Email: admin@agenticplatform.local
-Password: Admin@12345
-```
+An administrator account is seeded for local development. Use your configured admin credentials to sign in.
 
 ## Phase 3 Notes
 
@@ -90,16 +85,9 @@ POST /api/v1/auth/logout
 POST /api/v1/auth/register
 ```
 
-Login with the seeded admin user:
+Login with your configured administrator account to manage protected resources.
 
-```json
-{
-  "email": "admin@agenticplatform.local",
-  "password": "Admin@12345"
-}
-```
-
-Register requires an Admin bearer token. Valid roles are `Admin`, `Developer`, and `Viewer`.
+Valid roles are `Admin`, `Developer`, and `Viewer`. Public signup creates a normal user account.
 
 ## Phase 5 Agents API
 
@@ -471,12 +459,7 @@ Open:
 http://localhost:5173
 ```
 
-Default login:
-
-```text
-Email: admin@agenticplatform.local
-Password: Admin@12345
-```
+Use the login screen with your configured admin account, or register a normal user from the Register tab.
 
 The frontend uses:
 
@@ -593,6 +576,10 @@ The project has now grown into a working full-stack agentic AI platform named **
 - Persisted final workflow output.
 - Persisted step-by-step runtime logs.
 - Assigned agent tools are included in the agent system prompt as available capabilities.
+- Human approval gate steps can pause a workflow for reviewer action.
+- Approved human gates resume the queued execution path.
+- Rejected human gates stop the execution and persist the rejection.
+- Execution observability captures provider, model, duration, estimated input tokens, estimated output tokens, and estimated cost fields.
 
 ### Tool Engine
 
@@ -625,12 +612,26 @@ The project has now grown into a working full-stack agentic AI platform named **
 - MUI-based UI.
 - React Query for server state.
 - Axios API client.
-- Login page with prefilled admin demo credentials.
+- Login page with Admin login, User login, and Register modes.
 - Normal user registration page.
 - Protected routes.
 - JWT token handling.
 - Refresh token handling on expired access tokens.
 - Logout.
+- Realm selector:
+  - User Realm is shared by all users and admins.
+  - Admin Realm is visible only to users with the Admin role.
+  - Existing artifacts are stored in User Realm.
+- Admin panel:
+  - View all users.
+  - Inspect user roles and realm access.
+  - Grant or remove Admin access.
+- Arena page:
+  - Create creator-vs-creator agent challenges.
+  - Submit agents into a battle.
+  - Run the same task through competing agents.
+  - Use the configured LLM as an impartial judge.
+  - Persist winner, scores, judge summary, feedback, outputs, latency, provider, and model.
 - Dashboard with runtime metrics and execution launcher.
 - Agents page:
   - Create agents.
@@ -638,12 +639,28 @@ The project has now grown into a working full-stack agentic AI platform named **
   - Delete agents.
   - Project filter.
   - Per-agent AI override controls.
+  - Dynamic input schema generation from `{{fieldName}}` placeholders in agent instructions.
   - Searchable multi-select tool picker.
   - Built-in tools grouped at the top of the picker.
   - Custom tools searchable below built-ins.
+  - Attach contextualization documents to agents.
+- Context page:
+  - Upload contextualization documents.
+  - Supports `.txt`, `.json`, `.md`, `.csv`, `.docx`, `.xlsx`, and `.pdf` uploads.
+  - Extracts text from text-like files, Word documents, and Excel workbooks for agent context.
+  - Delete context documents and detach them from agents.
+- Autopilot page:
+  - Describe a desired outcome.
+  - Draft a workflow from matching existing agents.
+  - Optionally insert human approval gates between drafted agent steps.
+- Approvals page:
+  - Review workflow payloads waiting at human approval gates.
+  - Approve and resume executions.
+  - Reject and stop executions with reviewer comments.
 - Workflows page:
   - Search agents and tools.
   - Drag steps into a workflow.
+  - Drag human approval gates into specific points of a workflow.
   - Create workflows.
   - Edit workflows.
   - Delete workflows.
@@ -658,6 +675,7 @@ The project has now grown into a working full-stack agentic AI platform named **
   - Latest execution history.
   - History size selector: latest 10, 25, or 100.
   - Retry failed executions.
+  - Cost and latency observability strip for selected executions.
   - Structured final output viewer.
   - Step-by-step workflow output boxes.
   - Expandable raw JSON.
@@ -679,4 +697,4 @@ The project has now grown into a working full-stack agentic AI platform named **
 
 - Backend builds successfully.
 - Frontend builds successfully.
-- The platform supports creating agents, assigning tools, building workflows, running executions, inspecting outputs, retrying failures, chatting with LLMs, and creating custom Python tools.
+- The platform supports creating agents, assigning tools and context documents, building workflows with human approval gates, running executions, inspecting outputs, retrying failures, chatting with LLMs, creating custom Python tools, and reviewing cost/latency telemetry.

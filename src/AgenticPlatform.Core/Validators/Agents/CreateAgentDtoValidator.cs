@@ -42,6 +42,11 @@ public sealed class CreateAgentDtoValidator : AbstractValidator<CreateAgentDto>
             .Must(JsonValidator.BeValidJson)
             .WithMessage("ModelConfigJson must be valid JSON.");
 
+        RuleFor(request => request.InputSchemaJson)
+            .NotEmpty()
+            .Must(JsonValidator.BeValidJson)
+            .WithMessage("InputSchemaJson must be valid JSON.");
+
         Include(new AgentAISettingsValidator<CreateAgentDto>());
 
         RuleFor(request => request.Status)

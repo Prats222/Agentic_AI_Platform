@@ -31,6 +31,7 @@ export type SignUpRequest = {
 
 export type Agent = {
   id: string
+  realmId: string
   name: string
   description?: string
   projectName?: string
@@ -40,12 +41,15 @@ export type Agent = {
   tags?: string
   modelProvider: string
   modelName: string
+  inputSchemaJson: string
   useGlobalAISettings: boolean
   aiProvider?: string
   aiModel?: string
   status: string
   toolIds: string[]
   toolNames: string[]
+  contextDocumentIds: string[]
+  contextDocumentNames: string[]
   createdAt: string
 }
 
@@ -60,6 +64,7 @@ export type CreateAgentRequest = {
   modelProvider: string
   modelName: string
   modelConfigJson: string
+  inputSchemaJson: string
   useGlobalAISettings: boolean
   aiProvider?: string
   aiModel?: string
@@ -75,6 +80,7 @@ export type UpdateAgentRequest = CreateAgentRequest
 
 export type Tool = {
   id: string
+  realmId: string
   name: string
   description?: string
   category: string
@@ -106,6 +112,7 @@ export type WorkflowStep = {
 
 export type Workflow = {
   id: string
+  realmId: string
   name: string
   description?: string
   status: string
@@ -143,6 +150,7 @@ export type ExecutionLog = {
 
 export type Execution = {
   id: string
+  realmId: string
   targetType: string
   status: string
   agentId?: string
@@ -150,6 +158,12 @@ export type Execution = {
   inputJson: string
   outputJson?: string
   errorMessage?: string
+  durationMs?: number
+  provider?: string
+  model?: string
+  estimatedInputTokens?: number
+  estimatedOutputTokens?: number
+  estimatedCostUsd?: number
   startedAt?: string
   completedAt?: string
   createdAt: string
@@ -165,6 +179,10 @@ export type AISettings = {
   topP: number
   systemPrompt: string
   hasApiKey: boolean
+  hasGeminiApiKey: boolean
+  hasOpenRouterApiKey: boolean
+  hasGroqApiKey: boolean
+  hasDeepSeekApiKey: boolean
   baseUrl?: string
 }
 
@@ -201,4 +219,91 @@ export type LLMModel = {
   promptPrice: number
   completionPrice: number
   isFree: boolean
+}
+
+export type ContextDocument = {
+  id: string
+  realmId: string
+  name: string
+  fileName: string
+  contentType: string
+  fileExtension: string
+  sizeBytes: number
+  createdAt: string
+}
+
+export type HumanApprovalRequest = {
+  id: string
+  executionId: string
+  workflowStepId: string
+  title: string
+  instructions: string
+  payloadJson: string
+  isApproved: boolean
+  isRejected: boolean
+  reviewerComment?: string
+  reviewedAt?: string
+  createdAt: string
+}
+
+export type Realm = {
+  id: string
+  name: string
+  description: string
+  isAdminOnly: boolean
+}
+
+export type UserAccess = {
+  id: string
+  email: string
+  displayName: string
+  roles: string[]
+  canAccessUserRealm: boolean
+  canAccessAdminRealm: boolean
+  createdAt: string
+}
+
+export type ArenaEntry = {
+  id: string
+  challengeId: string
+  submittedByUserId: string
+  submittedByDisplayName: string
+  agentId: string
+  agentName: string
+  output?: string
+  score?: number
+  feedback?: string
+  durationMs?: number
+  provider?: string
+  model?: string
+  createdAt: string
+}
+
+export type ArenaChallenge = {
+  id: string
+  realmId: string
+  createdByUserId: string
+  createdByDisplayName: string
+  title: string
+  description: string
+  taskPrompt: string
+  rules: string
+  expectedOutput: string
+  judgeCriteria: string
+  status: string
+  winnerEntryId?: string
+  judgeSummary?: string
+  scorecardJson?: string
+  completedAt?: string
+  createdAt: string
+  entries: ArenaEntry[]
+}
+
+export type CreateArenaChallengeRequest = {
+  title: string
+  description: string
+  taskPrompt: string
+  rules: string
+  expectedOutput: string
+  judgeCriteria: string
 }

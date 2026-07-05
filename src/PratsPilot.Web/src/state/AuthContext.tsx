@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import axios from 'axios'
-import { api, apiClient, setAccessToken } from '../api/client'
+import { api, apiClient, setAccessToken, setRealmId } from '../api/client'
 import type { AuthResponse } from '../api/types'
 
 type AuthContextValue = {
@@ -77,11 +77,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: Boolean(user?.accessToken),
       login: async (email, password) => {
         const response = await apiClient.login(email, password)
+        if (!response.roles.includes('Admin')) {
+          setRealmId('11111111-1111-1111-1111-111111111111')
+        }
         persistSession(response)
         setUser(response)
       },
       signUp: async (displayName, email, password) => {
         const response = await apiClient.signUp({ displayName, email, password })
+        setRealmId('11111111-1111-1111-1111-111111111111')
         persistSession(response)
         setUser(response)
       },
@@ -109,6 +113,7 @@ function clearSession(setUser: (user: AuthResponse | undefined) => void) {
   localStorage.removeItem(STORAGE_KEY)
   setUser(undefined)
   setAccessToken()
+  setRealmId()
 }
 
 export function useAuth() {

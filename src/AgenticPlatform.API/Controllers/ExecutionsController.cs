@@ -6,6 +6,7 @@ using AgenticPlatform.Core.Entities;
 using AgenticPlatform.Core.Enums;
 using AgenticPlatform.Core.Interfaces;
 using AgenticPlatform.Core.Queries;
+using AgenticPlatform.API.Realms;
 using Asp.Versioning;
 using AutoMapper;
 using AutoMapper.QueryableExtensions;
@@ -40,9 +41,15 @@ public sealed class ExecutionsController : ControllerBase
         CreateExecutionDto request,
         CancellationToken cancellationToken)
     {
+        var realmId = RealmAccess.ResolveRealmId(this);
+        if (!RealmAccess.CanAccessRealm(this, realmId))
+        {
+            return Forbid();
+        }
+
         var targetExists = request.TargetType == ExecutionTargetType.Agent
-            ? await _unitOfWork.Agents.AnyAsync(agent => agent.Id == request.TargetId, cancellationToken)
-            : await _unitOfWork.Workflows.AnyAsync(workflow => workflow.Id == request.TargetId, cancellationToken);
+            ? await _unitOfWork.Agents.AnyAsync(agent => agent.Id == request.TargetId && agent.RealmId == realmId, cancellationToken)
+            : await _unitOfWork.Workflows.AnyAsync(workflow => workflow.Id == request.TargetId && workflow.RealmId == realmId, cancellationToken);
 
         if (!targetExists)
         {
@@ -52,6 +59,7 @@ public sealed class ExecutionsController : ControllerBase
         var execution = new Execution
         {
             TargetType = request.TargetType,
+            RealmId = realmId,
             Status = ExecutionStatus.Pending,
             AgentId = request.TargetType == ExecutionTargetType.Agent ? request.TargetId : null,
             WorkflowId = request.TargetType == ExecutionTargetType.Workflow ? request.TargetId : null,
@@ -76,7 +84,7 @@ public sealed class ExecutionsController : ControllerBase
     public async Task<ActionResult<ApiResponse<ExecutionDto>>> RetryExecution(Guid id, CancellationToken cancellationToken)
     {
         var previousExecution = await _unitOfWork.Executions.GetByIdAsync(id, cancellationToken);
-        if (previousExecution is null)
+        if (previousExecution is null || previousExecution.RealmId != RealmAccess.ResolveRealmId(this))
         {
             return NotFound(ApiResponse<ExecutionDto>.Fail("Execution was not found."));
         }
@@ -84,6 +92,7 @@ public sealed class ExecutionsController : ControllerBase
         var retry = new Execution
         {
             TargetType = previousExecution.TargetType,
+            RealmId = previousExecution.RealmId,
             Status = ExecutionStatus.Pending,
             AgentId = previousExecution.AgentId,
             WorkflowId = previousExecution.WorkflowId,
@@ -107,7 +116,7 @@ public sealed class ExecutionsController : ControllerBase
     public async Task<ActionResult<ApiResponse<ExecutionDto>>> GetExecution(Guid id, CancellationToken cancellationToken)
     {
         var execution = await _unitOfWork.Executions.GetWithLogsAsync(id, cancellationToken);
-        if (execution is null)
+        if (execution is null || execution.RealmId != RealmAccess.ResolveRealmId(this))
         {
             return NotFound(ApiResponse<ExecutionDto>.Fail("Execution was not found."));
         }
@@ -121,8 +130,15 @@ public sealed class ExecutionsController : ControllerBase
         [FromQuery] ExecutionQueryParameters queryParameters,
         CancellationToken cancellationToken)
     {
+        var realmId = RealmAccess.ResolveRealmId(this);
+        if (!RealmAccess.CanAccessRealm(this, realmId))
+        {
+            return Forbid();
+        }
+
         var query = _unitOfWork.Executions.Query()
             .AsNoTracking()
+            .InRealm(realmId)
             .OrderByDescending(execution => execution.CreatedAt)
             .AsQueryable();
 

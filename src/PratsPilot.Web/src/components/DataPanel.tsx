@@ -29,7 +29,14 @@ export function DataPanel<T>({
   columns: Array<{ key: string; label: string; render: (row: T) => ReactNode }>
 }) {
   return (
-    <Paper sx={{ p: 3 }}>
+    <Paper
+      sx={{
+        p: 3,
+        '&:hover': {
+          transform: 'translateY(-1px)',
+        },
+      }}
+    >
       <Box sx={{ mb: 2 }}>
         <Typography variant="h5">{title}</Typography>
         {subtitle && (

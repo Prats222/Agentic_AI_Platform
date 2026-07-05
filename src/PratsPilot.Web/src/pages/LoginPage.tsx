@@ -9,10 +9,10 @@ import { useAuth } from '../state/AuthContext'
 
 export function LoginPage() {
   const { login, signUp, isAuthenticated } = useAuth()
-  const [mode, setMode] = useState<'login' | 'signup'>('login')
+  const [mode, setMode] = useState<'admin' | 'user' | 'signup'>('admin')
   const [displayName, setDisplayName] = useState('Platform Builder')
-  const [email, setEmail] = useState('admin@agenticplatform.local')
-  const [password, setPassword] = useState('Admin@12345')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -87,7 +87,7 @@ export function LoginPage() {
         </Box>
         <Box
           component="form"
-          onSubmit={mode === 'login' ? handleSubmit : handleSignUp}
+          onSubmit={mode === 'signup' ? handleSignUp : handleSubmit}
           sx={{
             p: { xs: 3, md: 5 },
             bgcolor: 'rgba(255,255,255,0.035)',
@@ -99,9 +99,26 @@ export function LoginPage() {
             gap: 2.2,
           }}
         >
-          <Typography variant="h5">{mode === 'login' ? 'Sign in' : 'Create account'}</Typography>
-          <Tabs value={mode} onChange={(_, value) => setMode(value)} sx={{ minHeight: 42 }}>
-            <Tab value="login" label="Admin demo" />
+          <Typography variant="h5">{mode === 'signup' ? 'Create account' : mode === 'admin' ? 'Admin sign in' : 'User sign in'}</Typography>
+          <Tabs
+            value={mode}
+            onChange={(_, value) => {
+              setMode(value)
+              setError('')
+              if (value === 'admin' || value === 'user') {
+                setEmail('')
+                setPassword('')
+              }
+              if (value === 'signup') {
+                setEmail('')
+                setPassword('')
+                setDisplayName('Platform Builder')
+              }
+            }}
+            sx={{ minHeight: 42 }}
+          >
+            <Tab value="admin" label="Admin login" />
+            <Tab value="user" label="User login" />
             <Tab value="signup" label="Register" />
           </Tabs>
           {mode === 'signup' && (
@@ -122,11 +139,23 @@ export function LoginPage() {
           />
           {error && <Alert severity="error">{error}</Alert>}
           <Button type="submit" size="large" variant="contained" startIcon={<LoginIcon />} disabled={loading}>
-            {loading ? 'Working...' : mode === 'login' ? 'Enter PratsPilot' : 'Create and enter'}
+            {loading ? 'Working...' : mode === 'signup' ? 'Create and enter' : 'Enter PratsPilot'}
           </Button>
-          <Typography variant="caption" color="text.secondary">
-            Admin demo credentials stay visible. New registrations become builder accounts that can create agents and workflows.
-          </Typography>
+          {mode === 'admin' && (
+            <Alert severity="info">
+              Use your configured administrator account. Admin users can access both User Realm and Admin Realm.
+            </Alert>
+          )}
+          {mode === 'user' && (
+            <Typography variant="caption" color="text.secondary">
+              Use the email and password created from Register. Normal users enter User Realm only.
+            </Typography>
+          )}
+          {mode === 'signup' && (
+            <Typography variant="caption" color="text.secondary">
+              New registrations become normal builder accounts. An admin can grant Admin access later from the Admin panel.
+            </Typography>
+          )}
         </Box>
       </Paper>
     </Box>

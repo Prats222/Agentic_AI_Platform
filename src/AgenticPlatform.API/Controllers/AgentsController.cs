@@ -4,6 +4,7 @@ using AgenticPlatform.Core.DTOs.Agents;
 using AgenticPlatform.Core.Entities;
 using AgenticPlatform.Core.Interfaces;
 using AgenticPlatform.Core.Queries;
+using AgenticPlatform.API.Realms;
 using Asp.Versioning;
 using AutoMapper;
 using AutoMapper.QueryableExtensions;
@@ -29,7 +30,7 @@ public sealed class AgentsController : ControllerBase
     }
 
     [HttpGet]
-    [ResponseCache(Duration = 30, Location = ResponseCacheLocation.Any, VaryByQueryKeys = ["*"])]
+    [ResponseCache(Duration = 30, Location = ResponseCacheLocation.Any, VaryByQueryKeys = ["*"], VaryByHeader = RealmAccess.HeaderName)]
     [ProducesResponseType(typeof(ApiResponse<PagedResult<AgentDto>>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -37,7 +38,13 @@ public sealed class AgentsController : ControllerBase
         [FromQuery] AgentQueryParameters queryParameters,
         CancellationToken cancellationToken)
     {
-        var query = _unitOfWork.Agents.Query().AsNoTracking();
+        var realmId = RealmAccess.ResolveRealmId(this);
+        if (!RealmAccess.CanAccessRealm(this, realmId))
+        {
+            return Forbid();
+        }
+
+        var query = _unitOfWork.Agents.Query().AsNoTracking().InRealm(realmId);
 
         if (!string.IsNullOrWhiteSpace(queryParameters.Name))
         {
@@ -54,6 +61,7 @@ public sealed class AgentsController : ControllerBase
         var totalCount = await query.CountAsync(cancellationToken);
         var agents = await query
             .Include(agent => agent.Tools)
+            .Include(agent => agent.ContextDocuments)
             .Skip((queryParameters.PageNumber - 1) * queryParameters.PageSize)
             .Take(queryParameters.PageSize)
             .ToListAsync(cancellationToken);
@@ -70,7 +78,7 @@ public sealed class AgentsController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
-    [ResponseCache(Duration = 30, Location = ResponseCacheLocation.Any)]
+    [ResponseCache(Duration = 30, Location = ResponseCacheLocation.Any, VaryByHeader = RealmAccess.HeaderName)]
     [ProducesResponseType(typeof(ApiResponse<AgentDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<AgentDto>), StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -79,13 +87,57 @@ public sealed class AgentsController : ControllerBase
     {
         var agent = await _unitOfWork.Agents.Query()
             .Include(item => item.Tools)
-            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+            .Include(item => item.ContextDocuments)
+            .FirstOrDefaultAsync(item => item.Id == id && item.RealmId == RealmAccess.ResolveRealmId(this), cancellationToken);
         if (agent is null)
         {
             return NotFound(ApiResponse<AgentDto>.Fail("Agent was not found."));
         }
 
         return Ok(ApiResponse<AgentDto>.Ok(_mapper.Map<AgentDto>(agent)));
+    }
+
+    [HttpPut("{id:guid}/context-documents")]
+    [Authorize(Roles = $"{ApplicationRoles.Admin},{ApplicationRoles.Developer}")]
+    [ProducesResponseType(typeof(ApiResponse<AgentDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<AgentDto>), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiResponse<AgentDto>), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<ApiResponse<AgentDto>>> SetAgentContextDocuments(
+        Guid id,
+        SetAgentContextDocumentsDto request,
+        CancellationToken cancellationToken)
+    {
+        var agent = await _unitOfWork.Agents.Query()
+            .Include(item => item.ContextDocuments)
+            .FirstOrDefaultAsync(item => item.Id == id && item.RealmId == RealmAccess.ResolveRealmId(this), cancellationToken);
+
+        if (agent is null)
+        {
+            return NotFound(ApiResponse<AgentDto>.Fail("Agent was not found."));
+        }
+
+        var distinctDocumentIds = request.ContextDocumentIds.Distinct().ToArray();
+        var documents = distinctDocumentIds.Length == 0
+            ? new List<ContextDocument>()
+            : await _unitOfWork.Repository<ContextDocument>().Query()
+                .InRealm(agent.RealmId)
+                .Where(document => distinctDocumentIds.Contains(document.Id))
+                .ToListAsync(cancellationToken);
+
+        if (documents.Count != distinctDocumentIds.Length)
+        {
+            return BadRequest(ApiResponse<AgentDto>.Fail("One or more selected context documents were not found."));
+        }
+
+        agent.ContextDocuments.Clear();
+        foreach (var document in documents)
+        {
+            agent.ContextDocuments.Add(document);
+        }
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return Ok(ApiResponse<AgentDto>.Ok(_mapper.Map<AgentDto>(agent), "Agent context documents updated successfully."));
     }
 
     [HttpPost]
@@ -99,12 +151,19 @@ public sealed class AgentsController : ControllerBase
         CreateAgentDto request,
         CancellationToken cancellationToken)
     {
-        if (await _unitOfWork.Agents.AnyAsync(agent => agent.Name == request.Name, cancellationToken))
+        var realmId = RealmAccess.ResolveRealmId(this);
+        if (!RealmAccess.CanAccessRealm(this, realmId))
+        {
+            return Forbid();
+        }
+
+        if (await _unitOfWork.Agents.AnyAsync(agent => agent.RealmId == realmId && agent.Name == request.Name, cancellationToken))
         {
             return Conflict(ApiResponse<AgentDto>.Fail("An agent with this name already exists."));
         }
 
         var agent = _mapper.Map<Agent>(request);
+        agent.RealmId = realmId;
         await _unitOfWork.Agents.AddAsync(agent, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -131,14 +190,14 @@ public sealed class AgentsController : ControllerBase
         var agent = await _unitOfWork.Agents.Query()
             .Include(item => item.Tools)
             .Include(item => item.Workflows)
-            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+            .FirstOrDefaultAsync(item => item.Id == id && item.RealmId == RealmAccess.ResolveRealmId(this), cancellationToken);
         if (agent is null)
         {
             return NotFound(ApiResponse<AgentDto>.Fail("Agent was not found."));
         }
 
         var nameConflict = await _unitOfWork.Agents.AnyAsync(
-            existingAgent => existingAgent.Id != id && existingAgent.Name == request.Name,
+            existingAgent => existingAgent.RealmId == agent.RealmId && existingAgent.Id != id && existingAgent.Name == request.Name,
             cancellationToken);
 
         if (nameConflict)
@@ -165,7 +224,7 @@ public sealed class AgentsController : ControllerBase
     {
         var agent = await _unitOfWork.Agents.Query()
             .Include(item => item.Tools)
-            .FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+            .FirstOrDefaultAsync(item => item.Id == id && item.RealmId == RealmAccess.ResolveRealmId(this), cancellationToken);
 
         if (agent is null)
         {
@@ -176,6 +235,7 @@ public sealed class AgentsController : ControllerBase
         var tools = distinctToolIds.Length == 0
             ? new List<Tool>()
             : await _unitOfWork.Tools.Query()
+                .InRealm(agent.RealmId)
                 .Where(tool => distinctToolIds.Contains(tool.Id))
                 .ToListAsync(cancellationToken);
 
@@ -203,7 +263,8 @@ public sealed class AgentsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> DeleteAgent(Guid id, CancellationToken cancellationToken)
     {
-        var agent = await _unitOfWork.Agents.GetByIdAsync(id, cancellationToken);
+        var agent = await _unitOfWork.Agents.Query()
+            .FirstOrDefaultAsync(item => item.Id == id && item.RealmId == RealmAccess.ResolveRealmId(this), cancellationToken);
         if (agent is null)
         {
             return NotFound(ApiResponse<object>.Fail("Agent was not found."));

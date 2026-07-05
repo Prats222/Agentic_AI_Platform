@@ -8,54 +8,55 @@ export function createPratsPilotTheme(mode: PaletteMode) {
     palette: {
       mode,
       background: {
-        default: isDark ? '#070b12' : '#edf5f7',
-        paper: isDark ? 'rgba(11, 18, 29, 0.92)' : 'rgba(255, 255, 255, 0.92)',
+        default: isDark ? '#0B0F19' : '#F6F7FB',
+        paper: isDark ? 'rgba(21, 27, 40, 0.92)' : 'rgba(255, 255, 255, 0.94)',
       },
       primary: {
-        main: '#36d3c9',
-        contrastText: '#061014',
+        main: '#7C5CFC',
+        contrastText: '#FFFFFF',
       },
       secondary: {
-        main: '#ffb84d',
-        contrastText: '#12100a',
+        main: '#4F8CFF',
+        contrastText: '#FFFFFF',
       },
       success: {
-        main: isDark ? '#63e6a8' : '#1c9b67',
+        main: '#3DDC97',
       },
       warning: {
-        main: '#ffb84d',
+        main: '#F9C74F',
       },
       error: {
-        main: '#ff6b7a',
+        main: '#FF6B6B',
       },
       text: {
-        primary: isDark ? '#eef7fb' : '#12202e',
-        secondary: isDark ? '#91a4b7' : '#52687a',
+        primary: isDark ? '#F7F8FC' : '#121826',
+        secondary: isDark ? '#A7B0C0' : '#5C677A',
       },
-      divider: isDark ? 'rgba(146, 221, 230, 0.14)' : 'rgba(36, 71, 86, 0.16)',
+      divider: isDark ? 'rgba(148, 163, 184, 0.16)' : 'rgba(37, 47, 66, 0.14)',
     },
     shape: {
       borderRadius: 8,
     },
     typography: {
       fontFamily: '"Inter", "Segoe UI", system-ui, sans-serif',
-      h1: { letterSpacing: 0, fontWeight: 800 },
-      h2: { letterSpacing: 0, fontWeight: 800 },
-      h3: { letterSpacing: 0, fontWeight: 800 },
-      h4: { letterSpacing: 0, fontWeight: 800 },
-      h5: { letterSpacing: 0, fontWeight: 800 },
-      h6: { letterSpacing: 0, fontWeight: 800 },
+      h1: { letterSpacing: 0, fontWeight: 850 },
+      h2: { letterSpacing: 0, fontWeight: 850 },
+      h3: { letterSpacing: 0, fontWeight: 850 },
+      h4: { letterSpacing: 0, fontWeight: 850 },
+      h5: { letterSpacing: 0, fontWeight: 850 },
+      h6: { letterSpacing: 0, fontWeight: 850 },
       button: { textTransform: 'none', fontWeight: 700, letterSpacing: 0 },
     },
     components: {
       MuiCssBaseline: {
         styleOverrides: {
           body: {
-            '--app-bg': isDark ? '#070b12' : '#edf5f7',
-            '--app-bg-a': isDark ? 'rgba(54, 211, 201, 0.14)' : 'rgba(54, 211, 201, 0.18)',
-            '--app-bg-b': isDark ? 'rgba(255, 184, 77, 0.1)' : 'rgba(255, 184, 77, 0.16)',
-            '--app-scroll-track': isDark ? '#09111c' : '#dbe8ec',
-            '--app-scroll-thumb': isDark ? '#2b5361' : '#8ab6c0',
+            '--app-bg': isDark ? '#0B0F19' : '#F6F7FB',
+            '--app-bg-a': isDark ? 'rgba(124, 92, 252, 0.16)' : 'rgba(124, 92, 252, 0.12)',
+            '--app-bg-b': isDark ? 'rgba(79, 140, 255, 0.12)' : 'rgba(79, 140, 255, 0.1)',
+            '--app-bg-c': isDark ? 'rgba(255, 93, 177, 0.08)' : 'rgba(255, 93, 177, 0.08)',
+            '--app-scroll-track': isDark ? '#0E1420' : '#E9EDF5',
+            '--app-scroll-thumb': isDark ? '#39445A' : '#B9C2D4',
           },
         },
       },
@@ -63,8 +64,9 @@ export function createPratsPilotTheme(mode: PaletteMode) {
         styleOverrides: {
           root: {
             backgroundImage: 'none',
-            border: isDark ? '1px solid rgba(146, 221, 230, 0.14)' : '1px solid rgba(36, 71, 86, 0.12)',
-            boxShadow: isDark ? '0 18px 60px rgba(0,0,0,0.28)' : '0 18px 50px rgba(34, 67, 83, 0.12)',
+            border: isDark ? '1px solid rgba(148, 163, 184, 0.16)' : '1px solid rgba(37, 47, 66, 0.12)',
+            boxShadow: isDark ? '0 22px 70px rgba(0,0,0,0.34)' : '0 18px 50px rgba(17, 24, 39, 0.1)',
+            transition: 'border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease',
           },
         },
       },
@@ -72,6 +74,13 @@ export function createPratsPilotTheme(mode: PaletteMode) {
         styleOverrides: {
           root: {
             borderRadius: 8,
+            boxShadow: 'none',
+          },
+          contained: {
+            backgroundImage: 'linear-gradient(135deg, #7C5CFC 0%, #4F8CFF 100%)',
+            '&:hover': {
+              boxShadow: isDark ? '0 0 30px rgba(124, 92, 252, 0.28)' : '0 14px 30px rgba(79, 140, 255, 0.22)',
+            },
           },
         },
       },
@@ -86,7 +95,23 @@ export function createPratsPilotTheme(mode: PaletteMode) {
       MuiTableCell: {
         styleOverrides: {
           root: {
-            borderColor: isDark ? 'rgba(146, 221, 230, 0.12)' : 'rgba(36, 71, 86, 0.12)',
+            borderColor: isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(37, 47, 66, 0.12)',
+          },
+          head: {
+            color: isDark ? '#DDE3F0' : '#2B3445',
+            fontWeight: 850,
+          },
+        },
+      },
+      MuiTextField: {
+        defaultProps: {
+          variant: 'outlined',
+        },
+      },
+      MuiLinearProgress: {
+        styleOverrides: {
+          root: {
+            backgroundColor: isDark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(37, 47, 66, 0.1)',
           },
         },
       },

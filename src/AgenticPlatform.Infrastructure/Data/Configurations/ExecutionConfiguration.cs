@@ -1,4 +1,5 @@
 using AgenticPlatform.Core.Entities;
+using AgenticPlatform.Core.Constants;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -11,6 +12,15 @@ public sealed class ExecutionConfiguration : IEntityTypeConfiguration<Execution>
         builder.ToTable("Executions");
 
         builder.HasKey(execution => execution.Id);
+
+        builder.Property(execution => execution.RealmId)
+            .HasDefaultValue(ApplicationRealms.UserRealmId)
+            .IsRequired();
+
+        builder.HasOne(execution => execution.Realm)
+            .WithMany(realm => realm.Executions)
+            .HasForeignKey(execution => execution.RealmId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.Property(execution => execution.TargetType)
             .HasConversion<string>()
@@ -32,6 +42,15 @@ public sealed class ExecutionConfiguration : IEntityTypeConfiguration<Execution>
         builder.Property(execution => execution.ErrorMessage)
             .HasMaxLength(4000);
 
+        builder.Property(execution => execution.Provider)
+            .HasMaxLength(50);
+
+        builder.Property(execution => execution.Model)
+            .HasMaxLength(150);
+
+        builder.Property(execution => execution.EstimatedCostUsd)
+            .HasPrecision(18, 8);
+
         builder.HasOne(execution => execution.Agent)
             .WithMany(agent => agent.Executions)
             .HasForeignKey(execution => execution.AgentId)
@@ -48,6 +67,7 @@ public sealed class ExecutionConfiguration : IEntityTypeConfiguration<Execution>
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasIndex(execution => execution.Status);
+        builder.HasIndex(execution => execution.RealmId);
         builder.HasIndex(execution => execution.TargetType);
         builder.HasIndex(execution => execution.CreatedAt);
     }

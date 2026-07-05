@@ -3,7 +3,12 @@ import { AppShell } from './components/AppShell'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { AgentsPage } from './pages/AgentsPage'
 import { AISettingsPage } from './pages/AISettingsPage'
+import { AdminUsersPage } from './pages/AdminUsersPage'
+import { ApprovalsPage } from './pages/ApprovalsPage'
+import { ArenaPage } from './pages/ArenaPage'
+import { AutopilotPage } from './pages/AutopilotPage'
 import { ChatPage } from './pages/ChatPage'
+import { ContextLibraryPage } from './pages/ContextLibraryPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { ExecutionsPage } from './pages/ExecutionsPage'
 import { LoginPage } from './pages/LoginPage'
@@ -24,6 +29,11 @@ export default function App() {
       >
         <Route index element={<DashboardPage />} />
         <Route path="agents" element={<AgentsPage />} />
+        <Route path="admin/users" element={<AdminUsersPage />} />
+        <Route path="autopilot" element={<AutopilotPage />} />
+        <Route path="approvals" element={<ApprovalsPage />} />
+        <Route path="arena" element={<ArenaPage />} />
+        <Route path="context" element={<ContextLibraryPage />} />
         <Route path="workflows" element={<WorkflowsPage />} />
         <Route path="tools" element={<ToolsPage />} />
         <Route path="executions" element={<ExecutionsPage />} />

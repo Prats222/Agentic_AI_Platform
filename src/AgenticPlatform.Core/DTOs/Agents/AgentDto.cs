@@ -5,6 +5,7 @@ namespace AgenticPlatform.Core.DTOs.Agents;
 public sealed class AgentDto
 {
     public Guid Id { get; set; }
+    public Guid RealmId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
     public string? ProjectName { get; set; }
@@ -15,6 +16,7 @@ public sealed class AgentDto
     public string ModelProvider { get; set; } = string.Empty;
     public string ModelName { get; set; } = string.Empty;
     public string ModelConfigJson { get; set; } = "{}";
+    public string InputSchemaJson { get; set; } = "{}";
     public bool UseGlobalAISettings { get; set; }
     public AIProvider? AIProvider { get; set; }
     public string? AIModel { get; set; }
@@ -27,6 +29,8 @@ public sealed class AgentDto
     public AgentStatus Status { get; set; }
     public IReadOnlyCollection<Guid> ToolIds { get; set; } = Array.Empty<Guid>();
     public IReadOnlyCollection<string> ToolNames { get; set; } = Array.Empty<string>();
+    public IReadOnlyCollection<Guid> ContextDocumentIds { get; set; } = Array.Empty<Guid>();
+    public IReadOnlyCollection<string> ContextDocumentNames { get; set; } = Array.Empty<string>();
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? UpdatedAt { get; set; }
 }

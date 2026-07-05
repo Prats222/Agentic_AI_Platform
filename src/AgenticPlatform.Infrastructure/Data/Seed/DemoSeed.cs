@@ -1,5 +1,6 @@
 using AgenticPlatform.Core.Entities;
 using AgenticPlatform.Core.Enums;
+using AgenticPlatform.Core.Constants;
 using Microsoft.EntityFrameworkCore;
 
 namespace AgenticPlatform.Infrastructure.Data.Seed;
@@ -29,6 +30,7 @@ public static class DemoSeed
             new Tool
             {
                 Id = CalculatorToolId,
+                RealmId = ApplicationRealms.UserRealmId,
                 Name = "Demo Calculator",
                 Description = "Built-in arithmetic calculator. Input: { \"expression\": \"(2 + 3) * 4\" }.",
                 Category = "Calculator",
@@ -40,6 +42,7 @@ public static class DemoSeed
             new Tool
             {
                 Id = WebSearchToolId,
+                RealmId = ApplicationRealms.UserRealmId,
                 Name = "Demo Web Search",
                 Description = "Built-in DuckDuckGo instant-answer search. Input: { \"query\": \"Gemini API\" }.",
                 Category = "WebSearch",
@@ -51,6 +54,7 @@ public static class DemoSeed
             new Tool
             {
                 Id = FileReaderToolId,
+                RealmId = ApplicationRealms.UserRealmId,
                 Name = "Demo File Reader",
                 Description = "Reads small files under the API content root. Input: { \"path\": \"appsettings.json\" }.",
                 Category = "FileReader",
@@ -64,6 +68,7 @@ public static class DemoSeed
             new Agent
             {
                 Id = ResearchAgentId,
+                RealmId = ApplicationRealms.UserRealmId,
                 Name = "Demo Research Agent",
                 Description = "Uses global AI settings to answer research-style prompts.",
                 ModelProvider = "Global",
@@ -76,6 +81,7 @@ public static class DemoSeed
             new Agent
             {
                 Id = SummaryAgentId,
+                RealmId = ApplicationRealms.UserRealmId,
                 Name = "Demo Summary Agent",
                 Description = "Uses global AI settings to turn prior workflow output into a concise summary.",
                 ModelProvider = "Global",
@@ -91,6 +97,7 @@ public static class DemoSeed
             new Workflow
             {
                 Id = CalculatorWorkflowId,
+                RealmId = ApplicationRealms.UserRealmId,
                 Name = "Demo Calculator Chain",
                 Description = "Two-step workflow. Step 1 calculates the input expression; step 2 maps the result into a second calculation.",
                 Status = WorkflowStatus.Active,
@@ -99,6 +106,7 @@ public static class DemoSeed
             new Workflow
             {
                 Id = ResearchWorkflowId,
+                RealmId = ApplicationRealms.UserRealmId,
                 Name = "Demo Research And Summary",
                 Description = "Agent-to-agent workflow. Research agent answers the prompt; summary agent summarizes the prior output.",
                 Status = WorkflowStatus.Active,

@@ -6,6 +6,7 @@ namespace AgenticPlatform.Core.DTOs.Workflows;
 public sealed class WorkflowDto
 {
     public Guid Id { get; set; }
+    public Guid RealmId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
     public WorkflowStatus Status { get; set; }

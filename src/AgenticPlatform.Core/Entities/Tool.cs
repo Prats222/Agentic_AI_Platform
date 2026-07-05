@@ -2,6 +2,9 @@ namespace AgenticPlatform.Core.Entities;
 
 public sealed class Tool : BaseEntity
 {
+    public Guid RealmId { get; set; }
+    public Realm? Realm { get; set; }
+
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
     public string Category { get; set; } = string.Empty;

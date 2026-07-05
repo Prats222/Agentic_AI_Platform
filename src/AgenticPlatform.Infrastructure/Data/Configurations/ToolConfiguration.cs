@@ -1,4 +1,5 @@
 using AgenticPlatform.Core.Entities;
+using AgenticPlatform.Core.Constants;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -11,6 +12,15 @@ public sealed class ToolConfiguration : IEntityTypeConfiguration<Tool>
         builder.ToTable("Tools");
 
         builder.HasKey(tool => tool.Id);
+
+        builder.Property(tool => tool.RealmId)
+            .HasDefaultValue(ApplicationRealms.UserRealmId)
+            .IsRequired();
+
+        builder.HasOne(tool => tool.Realm)
+            .WithMany(realm => realm.Tools)
+            .HasForeignKey(tool => tool.RealmId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.Property(tool => tool.Name)
             .HasMaxLength(150)
@@ -31,7 +41,7 @@ public sealed class ToolConfiguration : IEntityTypeConfiguration<Tool>
             .HasMaxLength(2048)
             .IsRequired();
 
-        builder.HasIndex(tool => tool.Name)
+        builder.HasIndex(tool => new { tool.RealmId, tool.Name })
             .IsUnique();
     }
 }

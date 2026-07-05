@@ -40,19 +40,31 @@ public sealed class AISettingsConfiguration : IEntityTypeConfiguration<AISetting
         builder.Property(settings => settings.ApiKey)
             .HasMaxLength(4000);
 
+        builder.Property(settings => settings.GeminiApiKey)
+            .HasMaxLength(4000);
+
+        builder.Property(settings => settings.OpenRouterApiKey)
+            .HasMaxLength(4000);
+
+        builder.Property(settings => settings.GroqApiKey)
+            .HasMaxLength(4000);
+
+        builder.Property(settings => settings.DeepSeekApiKey)
+            .HasMaxLength(4000);
+
         builder.Property(settings => settings.BaseUrl)
             .HasMaxLength(500);
 
         builder.HasData(new AISettings
         {
             Id = GlobalSettingsId,
-            Provider = AIProvider.Ollama,
-            Model = "llama3.1",
+            Provider = AIProvider.Gemini,
+            Model = "gemini-2.5-flash",
             Temperature = 0.2,
             MaxTokens = 2048,
             TopP = 0.9,
             SystemPrompt = "You are a helpful AI agent.",
-            BaseUrl = "http://localhost:11434",
+            BaseUrl = "https://generativelanguage.googleapis.com/v1beta",
             CreatedAt = new DateTimeOffset(2026, 6, 28, 0, 0, 0, TimeSpan.Zero)
         });
     }

@@ -4,6 +4,9 @@ namespace AgenticPlatform.Core.Entities;
 
 public sealed class Workflow : BaseEntity
 {
+    public Guid RealmId { get; set; }
+    public Realm? Realm { get; set; }
+
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
     public WorkflowStatus Status { get; set; } = WorkflowStatus.Draft;

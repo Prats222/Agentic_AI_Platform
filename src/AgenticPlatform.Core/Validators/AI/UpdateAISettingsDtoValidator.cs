@@ -37,12 +37,9 @@ public sealed class UpdateAISettingsDtoValidator : AbstractValidator<UpdateAISet
             .When(request => !string.IsNullOrWhiteSpace(request.BaseUrl))
             .WithMessage("BaseUrl must be a valid absolute URL.");
 
-        When(request => request.Provider == AIProvider.Ollama, () =>
-        {
-            RuleFor(request => request.BaseUrl)
-                .NotEmpty()
-                .WithMessage("BaseUrl is required for Ollama.");
-        });
+        RuleFor(request => request.Provider)
+            .Must(provider => provider is AIProvider.Gemini or AIProvider.OpenRouter or AIProvider.Groq)
+            .WithMessage("Only Gemini, Groq, and OpenRouter are currently supported.");
     }
 
     private static bool BeValidAbsoluteUri(string? value)

@@ -17,7 +17,13 @@ public sealed class AgentMappingProfile : Profile
                 options => options.MapFrom(source => source.Tools.Select(tool => tool.Id)))
             .ForMember(
                 destination => destination.ToolNames,
-                options => options.MapFrom(source => source.Tools.Select(tool => tool.Name)));
+                options => options.MapFrom(source => source.Tools.Select(tool => tool.Name)))
+            .ForMember(
+                destination => destination.ContextDocumentIds,
+                options => options.MapFrom(source => source.ContextDocuments.Select(document => document.Id)))
+            .ForMember(
+                destination => destination.ContextDocumentNames,
+                options => options.MapFrom(source => source.ContextDocuments.Select(document => document.Name)));
         CreateMap<CreateAgentDto, Agent>();
         CreateMap<UpdateAgentDto, Agent>()
             .ForMember(destination => destination.Id, options => options.Ignore())
