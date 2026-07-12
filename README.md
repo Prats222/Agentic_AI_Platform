@@ -701,10 +701,10 @@ The project has now grown into a working full-stack agentic AI platform named **
 
 ### Free Deployment Plan
 
-The planned zero-cost deployment path is documented in [DEPLOYMENT_KOYEB_NEON_FREE.md](DEPLOYMENT_KOYEB_NEON_FREE.md).
+The planned zero-cost deployment path is documented in [DEPLOYMENT_RENDER_NEON_FREE.md](DEPLOYMENT_RENDER_NEON_FREE.md).
 
 - Frontend: Vercel Hobby.
-- Backend: Koyeb Free Web Service.
+- Backend: Render Free Web Service.
 - Database: Neon Free PostgreSQL.
 - Context uploads: extracted text stored in PostgreSQL for the free deployment.
 - Python tools: Python 3 installed inside the backend Docker container.
