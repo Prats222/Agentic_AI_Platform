@@ -39,7 +39,6 @@ public sealed class ContextDocumentConfiguration : IEntityTypeConfiguration<Cont
             .IsRequired();
 
         builder.Property(document => document.ExtractedText)
-            .HasColumnType("nvarchar(max)")
             .IsRequired();
 
         builder.Property(document => document.StoragePath)

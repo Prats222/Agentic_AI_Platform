@@ -29,7 +29,6 @@ public sealed class ArenaChallengeConfiguration : IEntityTypeConfiguration<Arena
             .IsRequired();
 
         builder.Property(challenge => challenge.TaskPrompt)
-            .HasColumnType("nvarchar(max)")
             .IsRequired();
 
         builder.Property(challenge => challenge.Rules)
@@ -49,8 +48,7 @@ public sealed class ArenaChallengeConfiguration : IEntityTypeConfiguration<Arena
             .HasMaxLength(50)
             .IsRequired();
 
-        builder.Property(challenge => challenge.ScorecardJson)
-            .HasColumnType("nvarchar(max)");
+        builder.Property(challenge => challenge.ScorecardJson);
 
         builder.Property(challenge => challenge.JudgeSummary)
             .HasMaxLength(4000);

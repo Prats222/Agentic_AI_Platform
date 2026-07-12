@@ -1,0 +1,12 @@
+.git
+.github
+.vs
+**/bin
+**/obj
+**/node_modules
+**/dist
+**/logs
+**/App_Data
+src/PratsPilot.Web/.env
+src/PratsPilot.Web/.env.local
+src/PratsPilot.Web/.env.production

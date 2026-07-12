@@ -21,7 +21,6 @@ public sealed class HumanApprovalRequestConfiguration : IEntityTypeConfiguration
             .IsRequired();
 
         builder.Property(request => request.PayloadJson)
-            .HasColumnType("nvarchar(max)")
             .IsRequired();
 
         builder.Property(request => request.ReviewerComment)

@@ -33,11 +33,9 @@ public sealed class ExecutionConfiguration : IEntityTypeConfiguration<Execution>
             .IsRequired();
 
         builder.Property(execution => execution.InputJson)
-            .HasColumnType("nvarchar(max)")
             .IsRequired();
 
-        builder.Property(execution => execution.OutputJson)
-            .HasColumnType("nvarchar(max)");
+        builder.Property(execution => execution.OutputJson);
 
         builder.Property(execution => execution.ErrorMessage)
             .HasMaxLength(4000);

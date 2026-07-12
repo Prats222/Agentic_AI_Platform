@@ -42,8 +42,16 @@ builder.Host.UseSerilog((context, services, loggerConfiguration) =>
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is missing.");
 
+var databaseProvider = builder.Configuration["Database:Provider"] ?? "SqlServer";
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
+    if (databaseProvider.Equals("PostgreSql", StringComparison.OrdinalIgnoreCase)
+        || databaseProvider.Equals("Postgres", StringComparison.OrdinalIgnoreCase))
+    {
+        options.UseNpgsql(connectionString);
+        return;
+    }
+
     options.UseSqlServer(connectionString);
 });
 
@@ -243,10 +251,17 @@ builder.Services.AddRateLimiter(options =>
 
 builder.Services
     .AddHealthChecks()
-    .AddSqlServer(connectionString, name: "sql-server")
+    .AddCheck<DatabaseHealthCheck>("database")
     .AddCheck<ExecutionEngineHealthCheck>("execution-engine");
 
 var app = builder.Build();
+
+if (builder.Configuration.GetValue<bool>("Database:EnsureCreated"))
+{
+    using var scope = app.Services.CreateScope();
+    var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    await dbContext.Database.EnsureCreatedAsync();
+}
 
 app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
 app.UseSerilogRequestLogging();

@@ -19,8 +19,7 @@ public sealed class ArenaEntryConfiguration : IEntityTypeConfiguration<ArenaEntr
             .HasMaxLength(150)
             .IsRequired();
 
-        builder.Property(entry => entry.Output)
-            .HasColumnType("nvarchar(max)");
+        builder.Property(entry => entry.Output);
 
         builder.Property(entry => entry.Feedback)
             .HasMaxLength(4000);

@@ -21,8 +21,7 @@ public sealed class ExecutionLogConfiguration : IEntityTypeConfiguration<Executi
             .HasMaxLength(4000)
             .IsRequired();
 
-        builder.Property(log => log.DetailsJson)
-            .HasColumnType("nvarchar(max)");
+        builder.Property(log => log.DetailsJson);
 
         builder.HasIndex(log => new { log.ExecutionId, log.CreatedAt });
     }

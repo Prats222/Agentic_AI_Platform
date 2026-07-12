@@ -698,3 +698,14 @@ The project has now grown into a working full-stack agentic AI platform named **
 - Backend builds successfully.
 - Frontend builds successfully.
 - The platform supports creating agents, assigning tools and context documents, building workflows with human approval gates, running executions, inspecting outputs, retrying failures, chatting with LLMs, creating custom Python tools, and reviewing cost/latency telemetry.
+
+### Free Deployment Plan
+
+The planned zero-cost deployment path is documented in [DEPLOYMENT_ORACLE_FREE.md](DEPLOYMENT_ORACLE_FREE.md).
+
+- Frontend: Vercel Hobby.
+- Backend: Oracle Cloud Always Free VM.
+- Database: PostgreSQL running in Docker on the Oracle VM.
+- Context uploads: persistent Docker volume on the Oracle VM.
+- Python tools: Python 3 installed inside the backend Docker container.
+- LLMs: Gemini and Groq free-tier keys configured from the app.

@@ -34,7 +34,6 @@ public sealed class ToolConfiguration : IEntityTypeConfiguration<Tool>
             .IsRequired();
 
         builder.Property(tool => tool.InputSchemaJson)
-            .HasColumnType("nvarchar(max)")
             .IsRequired();
 
         builder.Property(tool => tool.EndpointUrl)

@@ -53,11 +53,9 @@ public sealed class AgentConfiguration : IEntityTypeConfiguration<Agent>
             .IsRequired();
 
         builder.Property(agent => agent.ModelConfigJson)
-            .HasColumnType("nvarchar(max)")
             .IsRequired();
 
         builder.Property(agent => agent.InputSchemaJson)
-            .HasColumnType("nvarchar(max)")
             .HasDefaultValue("{}")
             .IsRequired();
 

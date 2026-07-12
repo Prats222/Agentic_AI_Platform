@@ -25,11 +25,9 @@ public sealed class WorkflowStepConfiguration : IEntityTypeConfiguration<Workflo
             .IsRequired();
 
         builder.Property(step => step.InputMappingJson)
-            .HasColumnType("nvarchar(max)")
             .IsRequired();
 
         builder.Property(step => step.ConfigurationJson)
-            .HasColumnType("nvarchar(max)")
             .IsRequired();
 
         builder.HasIndex(step => new { step.WorkflowId, step.Order })
