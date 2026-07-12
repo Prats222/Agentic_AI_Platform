@@ -81,7 +81,7 @@ export function LoginPage() {
           <Stack direction="row" spacing={1.2} sx={{ alignItems: 'center', color: 'secondary.main' }}>
             <RocketLaunchIcon />
             <Typography variant="body2" sx={{ fontWeight: 800 }}>
-              Connected to ASP.NET Core + SQL Server
+              Connected to ASP.NET Core + PostgreSQL
             </Typography>
           </Stack>
         </Box>
