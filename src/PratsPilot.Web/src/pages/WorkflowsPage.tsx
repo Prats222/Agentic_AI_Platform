@@ -142,7 +142,15 @@ export function WorkflowsPage() {
                 <TextField label="Workflow Name" value={workflowName} onChange={(e) => setWorkflowName(e.target.value)} fullWidth />
               </Grid>
               <Grid size={{ xs: 12, md: 6 }}>
-                <TextField label="Description" value={workflowDescription} onChange={(e) => setWorkflowDescription(e.target.value)} fullWidth />
+                <TextField
+                  label="Description"
+                  value={workflowDescription}
+                  onChange={(e) => setWorkflowDescription(e.target.value)}
+                  multiline
+                  minRows={4}
+                  fullWidth
+                  sx={resizableTextAreaSx}
+                />
               </Grid>
             </Grid>
             {!editingWorkflowId && <Box
@@ -254,6 +262,12 @@ export function WorkflowsPage() {
       />
     </Box>
   )
+}
+
+const resizableTextAreaSx = {
+  '& textarea': {
+    resize: 'vertical',
+  },
 }
 
 function StepCard({

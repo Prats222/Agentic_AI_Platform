@@ -60,13 +60,23 @@ export function ToolsPage() {
               <MenuItem value="WebSearch">WebSearch</MenuItem>
               <MenuItem value="FileReader">FileReader</MenuItem>
             </TextField>
-            <TextField label="Description" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} fullWidth />
+            <TextField
+              label="Description"
+              value={form.description}
+              onChange={(event) => setForm({ ...form, description: event.target.value })}
+              multiline
+              minRows={3}
+              fullWidth
+              sx={resizableTextAreaSx}
+            />
             <TextField
               label="Input Schema JSON"
               value={form.inputSchemaJson}
               onChange={(event) => setForm({ ...form, inputSchemaJson: event.target.value })}
+              multiline
+              minRows={6}
               fullWidth
-              sx={{ '& input': { fontFamily: 'ui-monospace, Consolas, monospace' } }}
+              sx={{ ...resizableTextAreaSx, '& textarea': { fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 13 } }}
             />
             <TextField
               label={form.category === 'PythonScript' ? 'Python Script' : 'Endpoint / Configuration'}
@@ -75,7 +85,7 @@ export function ToolsPage() {
               multiline
               minRows={8}
               fullWidth
-              sx={{ gridColumn: { lg: '1 / -1' }, '& textarea': { fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 13 } }}
+              sx={{ gridColumn: { lg: '1 / -1' }, ...resizableTextAreaSx, '& textarea': { fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 13 } }}
             />
             <Button variant="contained" startIcon={<AddIcon />} onClick={() => createTool.mutate()} disabled={!form.name || createTool.isPending}>
               Create Tool
@@ -146,7 +156,7 @@ export function ToolsPage() {
             multiline
             minRows={5}
             fullWidth
-            sx={{ gridColumn: { lg: '1 / -1' }, '& textarea': { fontFamily: 'ui-monospace, Consolas, monospace' } }}
+            sx={{ gridColumn: { lg: '1 / -1' }, ...resizableTextAreaSx, '& textarea': { fontFamily: 'ui-monospace, Consolas, monospace' } }}
           />
           <TextField
             label="Result"
@@ -154,12 +164,18 @@ export function ToolsPage() {
             multiline
             minRows={8}
             fullWidth
-            sx={{ gridColumn: { lg: '1 / -1' }, '& textarea': { fontFamily: 'ui-monospace, Consolas, monospace' } }}
+            sx={{ gridColumn: { lg: '1 / -1' }, ...resizableTextAreaSx, '& textarea': { fontFamily: 'ui-monospace, Consolas, monospace' } }}
           />
         </Box>
       </Stack>
     </Box>
   )
+}
+
+const resizableTextAreaSx = {
+  '& textarea': {
+    resize: 'vertical',
+  },
 }
 
 const pythonTemplate = `import json

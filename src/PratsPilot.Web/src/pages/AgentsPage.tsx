@@ -139,6 +139,7 @@ export function AgentsPage() {
   const allModelOptions = modelOptions.length ? modelOptions : [form.aiModel].filter(Boolean)
   const modelLabels = new Map(liveModelOptions.map((model) => [model.id, model.name]))
   const toolOptions = useMemo(() => sortTools(tools.data?.items ?? []), [tools.data])
+  const latestCustomToolIds = useMemo(() => new Set(getLatestCustomTools(tools.data?.items ?? []).map((tool) => tool.id)), [tools.data])
   const selectedTools = toolOptions.filter((tool) => selectedToolIds.includes(tool.id))
   const selectedContextDocuments = (contextDocuments.data ?? []).filter((document) => selectedContextDocumentIds.includes(document.id))
   const inputFields = extractInputFields([form.description, form.goal, form.expectedOutput].join('\n'))
@@ -158,16 +159,16 @@ export function AgentsPage() {
             <TextField label="Role" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} fullWidth />
           </Grid>
           <Grid size={{ xs: 12, md: 6 }}>
-            <TextField label="Goal" value={form.goal} onChange={(e) => setForm({ ...form, goal: e.target.value })} multiline minRows={3} fullWidth helperText="Use {{fieldName}} to request dynamic input fields." />
+            <TextField label="Goal" value={form.goal} onChange={(e) => setForm({ ...form, goal: e.target.value })} multiline minRows={4} fullWidth helperText="Use {{fieldName}} to request dynamic input fields." sx={resizableTextAreaSx} />
           </Grid>
           <Grid size={{ xs: 12, md: 6 }}>
-            <TextField label="Expected Output" value={form.expectedOutput} onChange={(e) => setForm({ ...form, expectedOutput: e.target.value })} multiline minRows={3} fullWidth helperText="Example: summarize {{documentTopic}} for {{audience}}." />
+            <TextField label="Expected Output" value={form.expectedOutput} onChange={(e) => setForm({ ...form, expectedOutput: e.target.value })} multiline minRows={4} fullWidth helperText="Example: summarize {{documentTopic}} for {{audience}}." sx={resizableTextAreaSx} />
           </Grid>
           <Grid size={{ xs: 12, md: 6 }}>
-            <TextField label="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} fullWidth helperText={inputFields.length ? `Input fields: ${inputFields.join(', ')}` : 'Type {{ to define custom input fields.'} />
+            <TextField label="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} multiline minRows={5} fullWidth helperText={inputFields.length ? `Input fields: ${inputFields.join(', ')}` : 'Type {{ to define custom input fields.'} sx={resizableTextAreaSx} />
           </Grid>
           <Grid size={{ xs: 12, md: 6 }}>
-            <TextField label="Tags" value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} fullWidth placeholder="qa, playwright, regression" />
+            <TextField label="Tags" value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} multiline minRows={2} fullWidth placeholder="qa, playwright, regression" sx={resizableTextAreaSx} />
           </Grid>
           <Grid size={{ xs: 12, md: 4 }}>
             <TextField select label="AI Mode" value={form.useGlobalAISettings ? 'global' : 'custom'} onChange={(e) => setForm({ ...form, useGlobalAISettings: e.target.value === 'global' })} fullWidth>
@@ -210,7 +211,11 @@ export function AgentsPage() {
               loading={tools.isLoading}
               options={toolOptions}
               value={selectedTools}
-              groupBy={(option) => (isBuiltInTool(option) ? 'Built-in tools' : 'Custom tools')}
+              groupBy={(option) => {
+                if (isBuiltInTool(option)) return 'Built-in tools'
+                if (latestCustomToolIds.has(option.id)) return 'Latest custom tools'
+                return 'All custom tools'
+              }}
               getOptionLabel={(option) => `${option.name} (${option.category})`}
               isOptionEqualToValue={(option, value) => option.id === value.id}
               onChange={(_, value) => setSelectedToolIds(value.map((tool) => tool.id))}
@@ -224,7 +229,7 @@ export function AgentsPage() {
                         {option.name}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {option.category}
+                        {option.category}{latestCustomToolIds.has(option.id) && !isBuiltInTool(option) ? ' - recently created' : ''}
                       </Typography>
                     </Box>
                   </Box>
@@ -234,8 +239,8 @@ export function AgentsPage() {
                 <TextField
                   {...params}
                   label="Search and select tools"
-                  placeholder={selectedTools.length ? '' : 'Calculator, PythonScript, WebSearch...'}
-                  helperText="Built-in tools stay at the top; custom tools are searchable below."
+                  placeholder={selectedTools.length ? '' : 'Search by tool name or category...'}
+                  helperText="Built-ins stay first, followed by the latest five custom tools. Type to search all tools."
                 />
               )}
             />
@@ -364,11 +369,34 @@ function isBuiltInTool(tool: Tool) {
 }
 
 function sortTools(tools: Tool[]) {
+  const latestCustomToolIds = new Set(getLatestCustomTools(tools).map((tool) => tool.id))
+
   return [...tools].sort((left, right) => {
     const groupCompare = Number(isBuiltInTool(right)) - Number(isBuiltInTool(left))
     if (groupCompare !== 0) return groupCompare
+
+    const latestCompare = Number(latestCustomToolIds.has(right.id)) - Number(latestCustomToolIds.has(left.id))
+    if (latestCompare !== 0) return latestCompare
+
+    if (latestCustomToolIds.has(left.id) && latestCustomToolIds.has(right.id)) {
+      return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
+    }
+
     return left.name.localeCompare(right.name)
   })
+}
+
+function getLatestCustomTools(tools: Tool[]) {
+  return tools
+    .filter((tool) => !isBuiltInTool(tool))
+    .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
+    .slice(0, 5)
+}
+
+const resizableTextAreaSx = {
+  '& textarea': {
+    resize: 'vertical',
+  },
 }
 
 function buildAgentRequest(form: {
