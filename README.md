@@ -701,11 +701,11 @@ The project has now grown into a working full-stack agentic AI platform named **
 
 ### Free Deployment Plan
 
-The planned zero-cost deployment path is documented in [DEPLOYMENT_ORACLE_FREE.md](DEPLOYMENT_ORACLE_FREE.md).
+The planned zero-cost deployment path is documented in [DEPLOYMENT_KOYEB_NEON_FREE.md](DEPLOYMENT_KOYEB_NEON_FREE.md).
 
 - Frontend: Vercel Hobby.
-- Backend: Oracle Cloud Always Free VM.
-- Database: PostgreSQL running in Docker on the Oracle VM.
-- Context uploads: persistent Docker volume on the Oracle VM.
+- Backend: Koyeb Free Web Service.
+- Database: Neon Free PostgreSQL.
+- Context uploads: extracted text stored in PostgreSQL for the free deployment.
 - Python tools: Python 3 installed inside the backend Docker container.
 - LLMs: Gemini and Groq free-tier keys configured from the app.
