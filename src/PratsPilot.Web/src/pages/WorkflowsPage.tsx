@@ -33,15 +33,17 @@ export function WorkflowsPage() {
   const canModify = (workflow: Workflow) => Boolean(user?.roles.includes('Admin') || !workflow.createdByUserId || workflow.createdByUserId === user?.userId)
 
   const searchableAgents = useMemo(() => {
-    const value = search.toLowerCase()
-    return (agents.data?.items ?? []).filter((agent) =>
+    const value = search.trim().toLowerCase()
+    const filtered = (agents.data?.items ?? []).filter((agent) =>
       [agent.name, agent.projectName, agent.role, agent.tags].some((field) => field?.toLowerCase().includes(value)),
     )
+    return value ? filtered : latestItems(filtered, 4)
   }, [agents.data, search])
 
   const searchableTools = useMemo(() => {
-    const value = search.toLowerCase()
-    return (tools.data?.items ?? []).filter((tool) => [tool.name, tool.category].some((field) => field?.toLowerCase().includes(value)))
+    const value = search.trim().toLowerCase()
+    const filtered = (tools.data?.items ?? []).filter((tool) => [tool.name, tool.category].some((field) => field?.toLowerCase().includes(value)))
+    return value ? filtered : latestItems(filtered, 4)
   }, [tools.data, search])
 
   const createWorkflow = useMutation({
@@ -152,6 +154,11 @@ export function WorkflowsPage() {
           <Paper ref={formRef} sx={{ p: 3 }}>
             <Typography variant="h5">Agent and Tool Search</Typography>
             <TextField label="Search by project, role, tag, category" value={search} onChange={(e) => setSearch(e.target.value)} fullWidth sx={{ my: 2 }} />
+            {!search.trim() && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                Showing latest 4 agents and latest 4 tools. Search to browse everything.
+              </Typography>
+            )}
             <Stack spacing={1.2}>
               <StepCard id="human-approval" type="HumanApproval" name="Human Approval Gate" meta="Pause workflow for review" onDragStart={dragStart} />
               {searchableAgents.map((agent) => (
@@ -308,6 +315,12 @@ function buildWorkflowStepRequest(step: BuilderStep, index: number) {
       : '{}',
     continueOnError: false,
   }
+}
+
+function latestItems<T extends { createdAt: string }>(items: T[], count: number) {
+  return [...items]
+    .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
+    .slice(0, count)
 }
 
 const resizableTextAreaSx = {
