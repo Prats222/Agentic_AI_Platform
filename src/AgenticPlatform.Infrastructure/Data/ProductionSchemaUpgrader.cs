@@ -26,7 +26,7 @@ public static class ProductionSchemaUpgrader
 
         await dbContext.Database.ExecuteSqlRawAsync(
             """
-            ALTER TABLE "Tools" ADD COLUMN IF NOT EXISTS "SecretJson" text NOT NULL DEFAULT '{}';
+            ALTER TABLE "Tools" ADD COLUMN IF NOT EXISTS "SecretJson" text NOT NULL DEFAULT '{{}}';
             """,
             cancellationToken);
     }
