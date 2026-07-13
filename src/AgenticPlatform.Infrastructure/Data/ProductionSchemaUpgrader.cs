@@ -11,7 +11,22 @@ public static class ProductionSchemaUpgrader
             return;
         }
 
-        var tables = new[] { "Agents", "Workflows", "Tools", "ContextDocuments", "ArenaChallenges" };
+        var tables = new[]
+        {
+            "Agents",
+            "AISettings",
+            "ArenaChallenges",
+            "ArenaEntries",
+            "ContextDocuments",
+            "Executions",
+            "ExecutionLogs",
+            "HumanApprovalRequests",
+            "Realms",
+            "RefreshTokens",
+            "Tools",
+            "Workflows",
+            "WorkflowSteps"
+        };
         foreach (var table in tables)
         {
 #pragma warning disable EF1002
