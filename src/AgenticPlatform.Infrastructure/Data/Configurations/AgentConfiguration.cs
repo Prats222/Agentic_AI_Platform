@@ -29,6 +29,9 @@ public sealed class AgentConfiguration : IEntityTypeConfiguration<Agent>
         builder.Property(agent => agent.Description)
             .HasMaxLength(1000);
 
+        builder.Property(agent => agent.CreatedByDisplayName)
+            .HasMaxLength(150);
+
         builder.Property(agent => agent.ProjectName)
             .HasMaxLength(150);
 

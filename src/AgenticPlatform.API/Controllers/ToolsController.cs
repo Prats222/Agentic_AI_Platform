@@ -5,6 +5,7 @@ using AgenticPlatform.Core.Entities;
 using AgenticPlatform.Core.Interfaces;
 using AgenticPlatform.Core.Queries;
 using AgenticPlatform.API.Realms;
+using AgenticPlatform.API.Extensions;
 using Asp.Versioning;
 using AutoMapper;
 using AutoMapper.QueryableExtensions;
@@ -161,6 +162,8 @@ public sealed class ToolsController : ControllerBase
 
         var tool = _mapper.Map<Tool>(request);
         tool.RealmId = realmId;
+        tool.CreatedByUserId = User.GetUserId();
+        tool.CreatedByDisplayName = User.GetDisplayName();
         await _unitOfWork.Tools.AddAsync(tool, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -185,6 +188,10 @@ public sealed class ToolsController : ControllerBase
         {
             return NotFound(ApiResponse<ToolDto>.Fail("Tool was not found."));
         }
+        if (!User.CanModifyArtifact(tool.CreatedByUserId))
+        {
+            return Forbid();
+        }
 
         var nameConflict = await _unitOfWork.Tools.AnyAsync(
             existingTool => existingTool.RealmId == tool.RealmId && existingTool.Id != id && existingTool.Name == request.Name,
@@ -203,7 +210,7 @@ public sealed class ToolsController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
-    [Authorize(Roles = ApplicationRoles.Admin)]
+    [Authorize(Roles = $"{ApplicationRoles.Admin},{ApplicationRoles.Developer}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteTool(Guid id, CancellationToken cancellationToken)
@@ -212,6 +219,10 @@ public sealed class ToolsController : ControllerBase
         if (tool is null)
         {
             return NotFound(ApiResponse<object>.Fail("Tool was not found."));
+        }
+        if (!User.CanModifyArtifact(tool.CreatedByUserId))
+        {
+            return Forbid();
         }
 
         _unitOfWork.Tools.Remove(tool);

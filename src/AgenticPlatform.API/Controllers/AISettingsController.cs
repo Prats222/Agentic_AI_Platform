@@ -127,6 +127,23 @@ public sealed class AISettingsController : ControllerBase
         DirectChatDto request,
         CancellationToken cancellationToken)
     {
+        var prompt = request.Prompt;
+        if (ShouldAttachSearchContext(prompt))
+        {
+            var searchContext = await BuildSearchContextAsync(prompt, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(searchContext))
+            {
+                request.Prompt = $"""
+                {prompt}
+
+                Current web context:
+                {searchContext}
+
+                Use the current web context above when answering. If it is insufficient, say what is missing.
+                """;
+            }
+        }
+
         var chatRequest = await _aiSettingsService.BuildDirectChatRequestAsync(request, cancellationToken);
         var provider = _llmProviderFactory.GetProvider(chatRequest.Provider);
         var response = await provider.ChatAsync(chatRequest, cancellationToken);
@@ -138,6 +155,54 @@ public sealed class AISettingsController : ControllerBase
             Content = response.Content,
             RawResponseJson = response.RawResponseJson
         }, "Chat completed successfully."));
+    }
+
+    private async Task<string> BuildSearchContextAsync(string query, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var endpoint = $"https://api.duckduckgo.com/?q={Uri.EscapeDataString(query)}&format=json&no_redirect=1&no_html=1";
+            var raw = await _httpClientFactory.CreateClient("tool-runner").GetStringAsync(endpoint, cancellationToken);
+            using var document = JsonDocument.Parse(raw);
+            var root = document.RootElement;
+            var parts = new List<string>();
+
+            AddIfPresent(parts, root, "Heading", "Heading");
+            AddIfPresent(parts, root, "AbstractText", "Summary");
+            AddIfPresent(parts, root, "AbstractURL", "Source");
+
+            if (parts.Count == 0 && root.TryGetProperty("RelatedTopics", out var related) && related.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in related.EnumerateArray().Take(5))
+                {
+                    AddIfPresent(parts, item, "Text", "Result");
+                    AddIfPresent(parts, item, "FirstURL", "URL");
+                }
+            }
+
+            return string.Join("\n", parts);
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
+    private static bool ShouldAttachSearchContext(string prompt)
+    {
+        var text = prompt.ToLowerInvariant();
+        return new[] { "today", "latest", "current", "weather", "score", "news", "live", "now" }
+            .Any(text.Contains);
+    }
+
+    private static void AddIfPresent(List<string> parts, JsonElement root, string propertyName, string label)
+    {
+        if (root.TryGetProperty(propertyName, out var element)
+            && element.ValueKind == JsonValueKind.String
+            && !string.IsNullOrWhiteSpace(element.GetString()))
+        {
+            parts.Add($"{label}: {element.GetString()}");
+        }
     }
 
     private async Task<IReadOnlyList<LLMModelDto>> GetOpenRouterModelsAsync(

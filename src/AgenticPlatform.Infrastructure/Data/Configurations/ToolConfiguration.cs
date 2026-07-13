@@ -40,6 +40,13 @@ public sealed class ToolConfiguration : IEntityTypeConfiguration<Tool>
             .HasMaxLength(2048)
             .IsRequired();
 
+        builder.Property(tool => tool.SecretJson)
+            .HasDefaultValue("{}")
+            .IsRequired();
+
+        builder.Property(tool => tool.CreatedByDisplayName)
+            .HasMaxLength(150);
+
         builder.HasIndex(tool => new { tool.RealmId, tool.Name })
             .IsUnique();
     }

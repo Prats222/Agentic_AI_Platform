@@ -26,6 +26,9 @@ public sealed class ContextDocumentConfiguration : IEntityTypeConfiguration<Cont
             .HasMaxLength(200)
             .IsRequired();
 
+        builder.Property(document => document.CreatedByDisplayName)
+            .HasMaxLength(150);
+
         builder.Property(document => document.FileName)
             .HasMaxLength(260)
             .IsRequired();

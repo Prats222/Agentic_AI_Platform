@@ -9,7 +9,10 @@ public sealed class ToolDto
     public string Category { get; set; } = string.Empty;
     public string InputSchemaJson { get; set; } = "{}";
     public string EndpointUrl { get; set; } = string.Empty;
+    public bool HasSecrets { get; set; }
     public bool IsEnabled { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? UpdatedAt { get; set; }
+    public Guid? CreatedByUserId { get; set; }
+    public string? CreatedByDisplayName { get; set; }
 }

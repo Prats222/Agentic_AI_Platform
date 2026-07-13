@@ -29,6 +29,9 @@ public sealed class WorkflowConfiguration : IEntityTypeConfiguration<Workflow>
         builder.Property(workflow => workflow.Description)
             .HasMaxLength(1000);
 
+        builder.Property(workflow => workflow.CreatedByDisplayName)
+            .HasMaxLength(150);
+
         builder.Property(workflow => workflow.Status)
             .HasConversion<string>()
             .HasMaxLength(50)

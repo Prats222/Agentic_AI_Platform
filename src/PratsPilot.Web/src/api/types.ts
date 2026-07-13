@@ -51,6 +51,8 @@ export type Agent = {
   contextDocumentIds: string[]
   contextDocumentNames: string[]
   createdAt: string
+  createdByUserId?: string
+  createdByDisplayName?: string
 }
 
 export type CreateAgentRequest = {
@@ -86,8 +88,12 @@ export type Tool = {
   category: string
   inputSchemaJson: string
   endpointUrl: string
+  secretJson?: string
+  hasSecrets?: boolean
   isEnabled: boolean
   createdAt: string
+  createdByUserId?: string
+  createdByDisplayName?: string
 }
 
 export type CreateToolRequest = {
@@ -96,6 +102,7 @@ export type CreateToolRequest = {
   category: string
   inputSchemaJson: string
   endpointUrl: string
+  secretJson?: string
   isEnabled: boolean
 }
 
@@ -117,6 +124,8 @@ export type Workflow = {
   description?: string
   status: string
   createdAt: string
+  createdByUserId?: string
+  createdByDisplayName?: string
   steps: WorkflowStep[]
 }
 

@@ -10,6 +10,7 @@ public sealed class Tool : BaseEntity
     public string Category { get; set; } = string.Empty;
     public string InputSchemaJson { get; set; } = "{}";
     public string EndpointUrl { get; set; } = string.Empty;
+    public string SecretJson { get; set; } = "{}";
     public bool IsEnabled { get; set; } = true;
 
     public ICollection<Agent> Agents { get; set; } = new List<Agent>();

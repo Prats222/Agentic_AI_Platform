@@ -4,15 +4,17 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import EditIcon from '@mui/icons-material/Edit'
 import SaveIcon from '@mui/icons-material/Save'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { apiClient } from '../api/client'
 import { fallbackModelCatalog, providerDefaults } from '../api/modelCatalog'
 import type { Agent, Tool } from '../api/types'
 import { DataPanel } from '../components/DataPanel'
 import { SectionHeader } from '../components/SectionHeader'
+import { useAuth } from '../state/AuthContext'
 
 export function AgentsPage() {
   const queryClient = useQueryClient()
+  const { user } = useAuth()
   const agents = useQuery({ queryKey: ['agents'], queryFn: apiClient.getAgents })
   const tools = useQuery({ queryKey: ['tools'], queryFn: apiClient.getTools })
   const contextDocuments = useQuery({ queryKey: ['contextDocuments'], queryFn: apiClient.getContextDocuments })
@@ -20,6 +22,7 @@ export function AgentsPage() {
   const [editingAgentId, setEditingAgentId] = useState<string | undefined>()
   const [selectedToolIds, setSelectedToolIds] = useState<string[]>([])
   const [selectedContextDocumentIds, setSelectedContextDocumentIds] = useState<string[]>([])
+  const formRef = useRef<HTMLDivElement | null>(null)
   const [form, setForm] = useState({
     name: '',
     projectName: '',
@@ -131,6 +134,7 @@ export function AgentsPage() {
     })
     setSelectedToolIds(agent.toolIds ?? [])
     setSelectedContextDocumentIds(agent.contextDocumentIds ?? [])
+    window.setTimeout(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0)
   }
 
   const liveModelOptions = models.data?.filter((model) => model.provider === form.aiProvider) ?? []
@@ -143,11 +147,12 @@ export function AgentsPage() {
   const selectedTools = toolOptions.filter((tool) => selectedToolIds.includes(tool.id))
   const selectedContextDocuments = (contextDocuments.data ?? []).filter((document) => selectedContextDocumentIds.includes(document.id))
   const inputFields = extractInputFields([form.description, form.goal, form.expectedOutput].join('\n'))
+  const canModify = (agent: Agent) => Boolean(user?.roles.includes('Admin') || !agent.createdByUserId || agent.createdByUserId === user?.userId)
 
   return (
     <Box>
       <SectionHeader eyebrow="Agent Builder" title={editingAgentId ? 'Edit specialized agent' : 'Create specialized agents for projects and workflows'} />
-      <Paper sx={{ p: 3, mb: 2.5 }}>
+      <Paper ref={formRef} sx={{ p: 3, mb: 2.5 }}>
         <Grid container spacing={2}>
           <Grid size={{ xs: 12, md: 4 }}>
             <TextField label="Agent Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} fullWidth />
@@ -337,22 +342,33 @@ export function AgentsPage() {
             render: (row) => new Date(row.createdAt).toLocaleString(),
           },
           {
+            key: 'owner',
+            label: 'Owner',
+            render: (row) => row.createdByDisplayName || 'system',
+          },
+          {
             key: 'actions',
             label: 'Actions',
             render: (row) => (
               <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap' }}>
-                <Button size="small" variant="outlined" startIcon={<EditIcon />} onClick={() => editAgent(row)}>
-                  Edit
-                </Button>
-                <Button
-                  size="small"
-                  color="error"
-                  variant="outlined"
-                  startIcon={<DeleteIcon />}
-                  onClick={() => window.confirm(`Delete agent "${row.name}"?`) && deleteAgent.mutate(row.id)}
-                >
-                  Delete
-                </Button>
+                {canModify(row) ? (
+                  <>
+                    <Button size="small" variant="outlined" startIcon={<EditIcon />} onClick={() => editAgent(row)}>
+                      Edit
+                    </Button>
+                    <Button
+                      size="small"
+                      color="error"
+                      variant="outlined"
+                      startIcon={<DeleteIcon />}
+                      onClick={() => window.confirm(`Delete agent "${row.name}"?`) && deleteAgent.mutate(row.id)}
+                    >
+                      Delete
+                    </Button>
+                  </>
+                ) : (
+                  <Chip size="small" label="View only" />
+                )}
               </Stack>
             ),
           },

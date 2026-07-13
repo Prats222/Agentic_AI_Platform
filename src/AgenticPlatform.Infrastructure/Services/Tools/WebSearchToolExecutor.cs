@@ -27,9 +27,9 @@ public sealed class WebSearchToolExecutor : ToolExecutorBase, IToolExecutor
         return ExecuteCoreAsync(request.Tool, async () =>
         {
             using var input = JsonDocument.Parse(request.InputJson);
-            var query = input.RootElement.TryGetProperty("query", out var queryElement)
-                ? queryElement.GetString()
-                : null;
+            var query = ReadInputValue(input.RootElement, "query")
+                ?? ReadInputValue(input.RootElement, "prompt")
+                ?? ReadInputValue(input.RootElement, "input");
 
             if (string.IsNullOrWhiteSpace(query))
             {
@@ -61,5 +61,12 @@ public sealed class WebSearchToolExecutor : ToolExecutorBase, IToolExecutor
                 raw
             });
         });
+    }
+
+    private static string? ReadInputValue(JsonElement root, string propertyName)
+    {
+        return root.TryGetProperty(propertyName, out var element) && element.ValueKind == JsonValueKind.String
+            ? element.GetString()
+            : null;
     }
 }

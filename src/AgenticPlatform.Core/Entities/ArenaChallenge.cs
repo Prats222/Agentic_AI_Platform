@@ -7,8 +7,8 @@ public sealed class ArenaChallenge : BaseEntity
     public Guid RealmId { get; set; }
     public Realm? Realm { get; set; }
 
-    public Guid CreatedByUserId { get; set; }
-    public string CreatedByDisplayName { get; set; } = string.Empty;
+    public new Guid CreatedByUserId { get; set; }
+    public new string CreatedByDisplayName { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public string TaskPrompt { get; set; } = string.Empty;

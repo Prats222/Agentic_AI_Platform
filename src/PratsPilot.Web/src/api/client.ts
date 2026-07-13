@@ -27,7 +27,8 @@ import type {
   Workflow,
 } from './types'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'https://localhost:7167/api/v1'
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'https://localhost:7167/api/v1'
+export const API_ORIGIN = API_BASE_URL.replace(/\/api\/v\d+\/?$/i, '')
 const REALM_STORAGE_KEY = 'pratspilot.realmId'
 
 export const api = axios.create({
@@ -113,6 +114,9 @@ export const apiClient = {
   deleteWorkflow: (id: string) => api.delete(`/workflows/${id}`),
   createWorkflowStep: (workflowId: string, request: CreateWorkflowStepRequest) =>
     unwrap<Workflow>(api.post(`/workflows/${workflowId}/steps`, request)),
+  updateWorkflowStep: (workflowId: string, stepId: string, request: CreateWorkflowStepRequest) =>
+    unwrap(api.put(`/workflows/${workflowId}/steps/${stepId}`, request)),
+  deleteWorkflowStep: (workflowId: string, stepId: string) => api.delete(`/workflows/${workflowId}/steps/${stepId}`),
   getExecutions: (pageSize = 10) => unwrap<PagedResult<Execution>>(api.get('/executions', { params: { pageSize, ...noCacheParams() } })),
   getExecution: (id: string) => unwrap<Execution>(api.get(`/executions/${id}`)),
   getAISettings: () => unwrap<AISettings>(api.get('/ai-settings')),

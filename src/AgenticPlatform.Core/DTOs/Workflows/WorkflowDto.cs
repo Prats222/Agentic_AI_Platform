@@ -12,5 +12,7 @@ public sealed class WorkflowDto
     public WorkflowStatus Status { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? UpdatedAt { get; set; }
+    public Guid? CreatedByUserId { get; set; }
+    public string? CreatedByDisplayName { get; set; }
     public IReadOnlyCollection<WorkflowStepDto> Steps { get; set; } = Array.Empty<WorkflowStepDto>();
 }

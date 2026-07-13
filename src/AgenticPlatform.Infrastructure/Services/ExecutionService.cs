@@ -40,7 +40,9 @@ public sealed class ExecutionService : IExecutionService
             .Include(item => item.Workflow)
                 .ThenInclude(workflow => workflow!.Steps.OrderBy(step => step.Order))
                     .ThenInclude(step => step.Agent)
+                        .ThenInclude(agent => agent!.ContextDocuments)
             .Include(item => item.Agent)
+                .ThenInclude(agent => agent!.ContextDocuments)
             .FirstOrDefaultAsync(item => item.Id == executionId, cancellationToken);
 
         if (execution is null)
@@ -465,11 +467,28 @@ public sealed class ExecutionService : IExecutionService
 
     private async Task<AgentRunResult> RunAgentByIdAsync(Guid agentId, string prompt, Guid executionId, CancellationToken cancellationToken)
     {
+        var agent = await _dbContext.Agents
+            .AsNoTracking()
+            .Include(item => item.ContextDocuments)
+            .Include(item => item.Tools)
+            .FirstOrDefaultAsync(item => item.Id == agentId, cancellationToken);
+
+        if (agent is null)
+        {
+            throw new InvalidOperationException("Agent target was not found.");
+        }
+
+        var enrichedPrompt = BuildAgentRuntimePrompt(agent, prompt);
         var chatRequest = await _aiSettingsService.BuildChatRequestAsync(agentId, prompt, cancellationToken);
         if (chatRequest is null)
         {
             throw new InvalidOperationException("Agent target was not found.");
         }
+        chatRequest.Messages = chatRequest.Messages
+            .Select((message, index) => index == chatRequest.Messages.Count - 1
+                ? new LLMChatMessage { Role = message.Role, Content = enrichedPrompt }
+                : message)
+            .ToArray();
 
         AddLog(executionId, ExecutionLogLevel.Information, $"Calling {chatRequest.Provider} model '{chatRequest.Model}'.");
 
@@ -480,7 +499,7 @@ public sealed class ExecutionService : IExecutionService
         {
             execution.Provider = chatRequest.Provider.ToString();
             execution.Model = chatRequest.Model;
-            execution.EstimatedInputTokens = EstimateTokens(prompt);
+            execution.EstimatedInputTokens = EstimateTokens(enrichedPrompt);
             execution.EstimatedOutputTokens = EstimateTokens(response.Content);
         }
 
@@ -492,6 +511,49 @@ public sealed class ExecutionService : IExecutionService
         }));
 
         return new AgentRunResult(chatRequest.Provider, chatRequest.Model, response.Content);
+    }
+
+    private static string BuildAgentRuntimePrompt(Agent agent, string userPrompt)
+    {
+        var sections = new List<string>
+        {
+            userPrompt
+        };
+
+        if (agent.ContextDocuments.Count > 0)
+        {
+            var contextBlocks = agent.ContextDocuments
+                .Where(document => !string.IsNullOrWhiteSpace(document.ExtractedText))
+                .Select(document => $"### {document.Name}\n{Truncate(document.ExtractedText, 6000)}")
+                .ToArray();
+
+            if (contextBlocks.Length > 0)
+            {
+                sections.Add($"""
+                Attached knowledge base context:
+                {string.Join("\n\n", contextBlocks)}
+
+                Use the attached context when it is relevant. If the answer is present in the context, answer from it directly.
+                """);
+            }
+        }
+
+        if (agent.Tools.Count > 0)
+        {
+            sections.Add($"""
+            Available tools attached to this agent:
+            {string.Join("\n", agent.Tools.Select(tool => $"- {tool.Name} ({tool.Category}): {tool.Description}"))}
+
+            If live/current information is required, say which attached tool should be executed and what JSON input it needs.
+            """);
+        }
+
+        return string.Join("\n\n", sections);
+    }
+
+    private static string Truncate(string value, int maxLength)
+    {
+        return value.Length <= maxLength ? value : value[..maxLength] + "\n...[truncated]";
     }
 
     private void AddLog(Guid executionId, ExecutionLogLevel level, string message, string? detailsJson = null)

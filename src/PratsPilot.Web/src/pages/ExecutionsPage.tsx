@@ -63,7 +63,7 @@ export function ExecutionsPage() {
     <Box>
       <SectionHeader eyebrow="Telemetry" title="Execution history and outputs" />
       <Grid container spacing={2.5}>
-        <Grid size={{ xs: 12, lg: 7 }}>
+        <Grid size={{ xs: 12, lg: 5 }}>
           <DataPanel<Execution>
             title="Recent Executions"
             subtitle={`Showing latest ${pageSize} runs`}
@@ -129,7 +129,7 @@ export function ExecutionsPage() {
             <MenuItem value={100}>Latest 100</MenuItem>
           </TextField>
         </Grid>
-        <Grid size={{ xs: 12, lg: 5 }}>
+        <Grid size={{ xs: 12, lg: 7 }}>
           <Paper sx={{ p: 3, minHeight: 500 }}>
             <Typography variant="h5">Output Viewer</Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>

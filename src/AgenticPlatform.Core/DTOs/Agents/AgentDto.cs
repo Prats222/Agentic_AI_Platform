@@ -33,4 +33,6 @@ public sealed class AgentDto
     public IReadOnlyCollection<string> ContextDocumentNames { get; set; } = Array.Empty<string>();
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? UpdatedAt { get; set; }
+    public Guid? CreatedByUserId { get; set; }
+    public string? CreatedByDisplayName { get; set; }
 }

@@ -7,5 +7,6 @@ public sealed class UpdateToolDto
     public string Category { get; set; } = string.Empty;
     public string InputSchemaJson { get; set; } = "{}";
     public string EndpointUrl { get; set; } = string.Empty;
+    public string? SecretJson { get; set; }
     public bool IsEnabled { get; set; }
 }

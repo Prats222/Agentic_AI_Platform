@@ -5,6 +5,7 @@ using AgenticPlatform.Core.Entities;
 using AgenticPlatform.Core.Interfaces;
 using AgenticPlatform.Core.Queries;
 using AgenticPlatform.API.Realms;
+using AgenticPlatform.API.Extensions;
 using Asp.Versioning;
 using AutoMapper;
 using AutoMapper.QueryableExtensions;
@@ -115,6 +116,10 @@ public sealed class AgentsController : ControllerBase
         {
             return NotFound(ApiResponse<AgentDto>.Fail("Agent was not found."));
         }
+        if (!User.CanModifyArtifact(agent.CreatedByUserId))
+        {
+            return Forbid();
+        }
 
         var distinctDocumentIds = request.ContextDocumentIds.Distinct().ToArray();
         var documents = distinctDocumentIds.Length == 0
@@ -164,6 +169,8 @@ public sealed class AgentsController : ControllerBase
 
         var agent = _mapper.Map<Agent>(request);
         agent.RealmId = realmId;
+        agent.CreatedByUserId = User.GetUserId();
+        agent.CreatedByDisplayName = User.GetDisplayName();
         await _unitOfWork.Agents.AddAsync(agent, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -194,6 +201,10 @@ public sealed class AgentsController : ControllerBase
         if (agent is null)
         {
             return NotFound(ApiResponse<AgentDto>.Fail("Agent was not found."));
+        }
+        if (!User.CanModifyArtifact(agent.CreatedByUserId))
+        {
+            return Forbid();
         }
 
         var nameConflict = await _unitOfWork.Agents.AnyAsync(
@@ -230,6 +241,10 @@ public sealed class AgentsController : ControllerBase
         {
             return NotFound(ApiResponse<AgentDto>.Fail("Agent was not found."));
         }
+        if (!User.CanModifyArtifact(agent.CreatedByUserId))
+        {
+            return Forbid();
+        }
 
         var distinctToolIds = request.ToolIds.Distinct().ToArray();
         var tools = distinctToolIds.Length == 0
@@ -256,7 +271,7 @@ public sealed class AgentsController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
-    [Authorize(Roles = ApplicationRoles.Admin)]
+    [Authorize(Roles = $"{ApplicationRoles.Admin},{ApplicationRoles.Developer}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -268,6 +283,10 @@ public sealed class AgentsController : ControllerBase
         if (agent is null)
         {
             return NotFound(ApiResponse<object>.Fail("Agent was not found."));
+        }
+        if (!User.CanModifyArtifact(agent.CreatedByUserId))
+        {
+            return Forbid();
         }
 
         var workflowSteps = await _unitOfWork.Repository<WorkflowStep>()

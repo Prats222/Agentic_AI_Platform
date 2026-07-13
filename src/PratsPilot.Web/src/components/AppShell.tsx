@@ -40,7 +40,7 @@ import { useAuth } from '../state/AuthContext'
 import { useTheme, alpha } from '@mui/material/styles'
 import { useThemeMode } from '../state/ThemeModeContext'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiClient, getStoredRealmId, setRealmId } from '../api/client'
+import { API_ORIGIN, apiClient, getStoredRealmId, setRealmId } from '../api/client'
 
 const drawerWidth = 292
 
@@ -244,13 +244,13 @@ export function AppShell() {
             {isDark ? <LightModeIcon /> : <DarkModeIcon />}
           </IconButton>
           <Button
-            href="https://localhost:7167/swagger"
+            href={`${API_ORIGIN}/health`}
             target="_blank"
             variant="outlined"
             size="small"
             sx={{ display: { xs: 'none', md: 'inline-flex' } }}
           >
-            Swagger
+            API Health
           </Button>
         </Toolbar>
         <Box component="main" sx={{ p: { xs: 2, md: 4 }, maxWidth: 1500, mx: 'auto' }}>

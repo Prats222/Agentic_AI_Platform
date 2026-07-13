@@ -15,6 +15,8 @@ public sealed class WorkflowMappingProfile : Profile
             .ForMember(destination => destination.Id, options => options.Ignore())
             .ForMember(destination => destination.CreatedAt, options => options.Ignore())
             .ForMember(destination => destination.UpdatedAt, options => options.Ignore())
+            .ForMember(destination => destination.CreatedByUserId, options => options.Ignore())
+            .ForMember(destination => destination.CreatedByDisplayName, options => options.Ignore())
             .ForMember(destination => destination.Steps, options => options.Ignore())
             .ForMember(destination => destination.Agents, options => options.Ignore())
             .ForMember(destination => destination.Executions, options => options.Ignore());

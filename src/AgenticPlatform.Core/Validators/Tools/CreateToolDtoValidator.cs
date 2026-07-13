@@ -24,6 +24,11 @@ public sealed class CreateToolDtoValidator : AbstractValidator<CreateToolDto>
             .Must(JsonValidator.BeValidJson)
             .WithMessage("InputSchemaJson must be valid JSON.");
 
+        RuleFor(request => request.SecretJson)
+            .NotEmpty()
+            .Must(JsonValidator.BeValidJson)
+            .WithMessage("SecretJson must be valid JSON.");
+
         RuleFor(request => request.EndpointUrl)
             .NotEmpty()
             .MaximumLength(2048)

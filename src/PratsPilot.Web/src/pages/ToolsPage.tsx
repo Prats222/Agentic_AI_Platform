@@ -21,6 +21,7 @@ export function ToolsPage() {
     category: 'PythonScript',
     inputSchemaJson: '{"type":"object"}',
     endpointUrl: pythonTemplate,
+    secretJson: '{}',
     isEnabled: true,
   })
 
@@ -37,6 +38,7 @@ export function ToolsPage() {
         category: 'PythonScript',
         inputSchemaJson: '{"type":"object"}',
         endpointUrl: pythonTemplate,
+        secretJson: '{}',
         isEnabled: true,
       })
     },
@@ -87,6 +89,16 @@ export function ToolsPage() {
               fullWidth
               sx={{ gridColumn: { lg: '1 / -1' }, ...resizableTextAreaSx, '& textarea': { fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 13 } }}
             />
+            <TextField
+              label="Secrets JSON (optional)"
+              value={form.secretJson}
+              onChange={(event) => setForm({ ...form, secretJson: event.target.value })}
+              multiline
+              minRows={4}
+              fullWidth
+              helperText={'Stored server-side and injected as data["secrets"] during execution. Example: {"githubToken":"..."}'}
+              sx={{ gridColumn: { lg: '1 / -1' }, ...resizableTextAreaSx, '& textarea': { fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 13 } }}
+            />
             <Button variant="contained" startIcon={<AddIcon />} onClick={() => createTool.mutate()} disabled={!form.name || createTool.isPending}>
               Create Tool
             </Button>
@@ -114,6 +126,8 @@ export function ToolsPage() {
             },
             { key: 'category', label: 'Category', render: (row) => <Chip size="small" label={row.category} /> },
             { key: 'enabled', label: 'Enabled', render: (row) => <Chip size="small" color={row.isEnabled ? 'success' : 'default'} label={row.isEnabled ? 'Yes' : 'No'} /> },
+            { key: 'secrets', label: 'Secrets', render: (row) => <Chip size="small" color={row.hasSecrets ? 'warning' : 'default'} label={row.hasSecrets ? 'Stored' : 'None'} /> },
+            { key: 'owner', label: 'Owner', render: (row) => row.createdByDisplayName || 'system' },
             {
               key: 'action',
               label: 'Try',

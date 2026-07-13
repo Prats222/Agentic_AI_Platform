@@ -7,6 +7,7 @@ using AgenticPlatform.Core.Enums;
 using AgenticPlatform.Core.Interfaces;
 using AgenticPlatform.Core.Queries;
 using AgenticPlatform.API.Realms;
+using AgenticPlatform.API.Extensions;
 using Asp.Versioning;
 using AutoMapper;
 using AutoMapper.QueryableExtensions;
@@ -118,6 +119,8 @@ public sealed class WorkflowsController : ControllerBase
 
         var workflow = _mapper.Map<Workflow>(request);
         workflow.RealmId = realmId;
+        workflow.CreatedByUserId = User.GetUserId();
+        workflow.CreatedByDisplayName = User.GetDisplayName();
         await _unitOfWork.Workflows.AddAsync(workflow, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -144,6 +147,10 @@ public sealed class WorkflowsController : ControllerBase
         {
             return NotFound(ApiResponse<WorkflowDto>.Fail("Workflow was not found."));
         }
+        if (!User.CanModifyArtifact(workflow.CreatedByUserId))
+        {
+            return Forbid();
+        }
 
         var nameConflict = await _unitOfWork.Workflows.AnyAsync(
             existingWorkflow => existingWorkflow.RealmId == workflow.RealmId && existingWorkflow.Id != id && existingWorkflow.Name == request.Name,
@@ -162,7 +169,7 @@ public sealed class WorkflowsController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
-    [Authorize(Roles = ApplicationRoles.Admin)]
+    [Authorize(Roles = $"{ApplicationRoles.Admin},{ApplicationRoles.Developer}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteWorkflow(Guid id, CancellationToken cancellationToken)
@@ -172,6 +179,10 @@ public sealed class WorkflowsController : ControllerBase
         if (workflow is null)
         {
             return NotFound(ApiResponse<object>.Fail("Workflow was not found."));
+        }
+        if (!User.CanModifyArtifact(workflow.CreatedByUserId))
+        {
+            return Forbid();
         }
 
         var steps = await _unitOfWork.Repository<WorkflowStep>()
@@ -241,6 +252,13 @@ public sealed class WorkflowsController : ControllerBase
         {
             return NotFound(ApiResponse<WorkflowStepDto>.Fail("Workflow was not found."));
         }
+        var parentWorkflow = await _unitOfWork.Workflows.Query()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(workflow => workflow.Id == workflowId && workflow.RealmId == realmId, cancellationToken);
+        if (parentWorkflow is not null && !User.CanModifyArtifact(parentWorkflow.CreatedByUserId))
+        {
+            return Forbid();
+        }
 
         var targetError = await ValidateStepTargetAsync(request.StepType, request.ToolId, request.AgentId, cancellationToken);
         if (targetError is not null)
@@ -291,6 +309,14 @@ public sealed class WorkflowsController : ControllerBase
         {
             return NotFound(ApiResponse<WorkflowStepDto>.Fail("Workflow step was not found."));
         }
+        var workflowOwnerId = await _unitOfWork.Workflows.Query()
+            .Where(workflow => workflow.Id == workflowId)
+            .Select(workflow => workflow.CreatedByUserId)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (!User.CanModifyArtifact(workflowOwnerId))
+        {
+            return Forbid();
+        }
 
         return Ok(ApiResponse<WorkflowStepDto>.Ok(_mapper.Map<WorkflowStepDto>(step)));
     }
@@ -314,6 +340,14 @@ public sealed class WorkflowsController : ControllerBase
         if (step is null)
         {
             return NotFound(ApiResponse<WorkflowStepDto>.Fail("Workflow step was not found."));
+        }
+        var workflowOwnerId = await _unitOfWork.Workflows.Query()
+            .Where(workflow => workflow.Id == workflowId)
+            .Select(workflow => workflow.CreatedByUserId)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (!User.CanModifyArtifact(workflowOwnerId))
+        {
+            return Forbid();
         }
 
         var targetError = await ValidateStepTargetAsync(request.StepType, request.ToolId, request.AgentId, cancellationToken);
@@ -356,6 +390,14 @@ public sealed class WorkflowsController : ControllerBase
         if (step is null)
         {
             return NotFound(ApiResponse<object>.Fail("Workflow step was not found."));
+        }
+        var workflowOwnerId = await _unitOfWork.Workflows.Query()
+            .Where(workflow => workflow.Id == workflowId)
+            .Select(workflow => workflow.CreatedByUserId)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (!User.CanModifyArtifact(workflowOwnerId))
+        {
+            return Forbid();
         }
 
         var approvalRequests = await _unitOfWork.Repository<HumanApprovalRequest>()

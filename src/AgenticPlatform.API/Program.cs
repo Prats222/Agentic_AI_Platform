@@ -262,6 +262,7 @@ if (builder.Configuration.GetValue<bool>("Database:EnsureCreated"))
     using var scope = app.Services.CreateScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     await dbContext.Database.EnsureCreatedAsync();
+    await ProductionSchemaUpgrader.UpgradeAsync(dbContext);
 }
 
 var forwardedHeadersOptions = new ForwardedHeadersOptions

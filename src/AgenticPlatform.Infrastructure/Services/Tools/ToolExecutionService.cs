@@ -1,3 +1,4 @@
+using System.Text.Json;
 using AgenticPlatform.Core.Interfaces;
 using AgenticPlatform.Core.Models.Tools;
 using AgenticPlatform.Infrastructure.Data;
@@ -41,7 +42,31 @@ public sealed class ToolExecutionService : IToolExecutionService
         return await executor.ExecuteAsync(new ToolExecutionRequest
         {
             Tool = tool,
-            InputJson = inputJson
+            InputJson = MergeSecrets(inputJson, tool.SecretJson)
         }, cancellationToken);
+    }
+
+    private static string MergeSecrets(string inputJson, string? secretJson)
+    {
+        if (string.IsNullOrWhiteSpace(secretJson) || secretJson == "{}")
+        {
+            return inputJson;
+        }
+
+        using var inputDocument = JsonDocument.Parse(string.IsNullOrWhiteSpace(inputJson) ? "{}" : inputJson);
+        using var secretDocument = JsonDocument.Parse(secretJson);
+        if (inputDocument.RootElement.ValueKind != JsonValueKind.Object || secretDocument.RootElement.ValueKind != JsonValueKind.Object)
+        {
+            return inputJson;
+        }
+
+        var merged = new Dictionary<string, object?>();
+        foreach (var property in inputDocument.RootElement.EnumerateObject())
+        {
+            merged[property.Name] = JsonSerializer.Deserialize<object?>(property.Value.GetRawText());
+        }
+
+        merged["secrets"] = JsonSerializer.Deserialize<object?>(secretDocument.RootElement.GetRawText());
+        return JsonSerializer.Serialize(merged);
     }
 }

@@ -4,6 +4,7 @@ import RocketLaunchIcon from '@mui/icons-material/RocketLaunch'
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Navigate } from 'react-router-dom'
+import axios from 'axios'
 import { Logo } from '../components/Logo'
 import { useAuth } from '../state/AuthContext'
 
@@ -39,8 +40,8 @@ export function LoginPage() {
     setError('')
     try {
       await signUp(displayName, email, password)
-    } catch {
-      setError('Registration failed. Use a unique email and a strong password.')
+    } catch (signUpError) {
+      setError(getAuthErrorMessage(signUpError, 'Registration failed. Use a valid email and a strong password. Password must be at least 8 characters and include uppercase, lowercase, number, and special character.'))
     } finally {
       setLoading(false)
     }
@@ -153,11 +154,34 @@ export function LoginPage() {
           )}
           {mode === 'signup' && (
             <Typography variant="caption" color="text.secondary">
-              New registrations become normal builder accounts. An admin can grant Admin access later from the Admin panel.
+              Use a valid email. Password needs 8+ characters with uppercase, lowercase, number, and special character.
             </Typography>
           )}
         </Box>
       </Paper>
     </Box>
   )
+}
+
+function getAuthErrorMessage(error: unknown, fallback: string) {
+  if (!axios.isAxiosError(error)) {
+    return fallback
+  }
+
+  const data = error.response?.data as {
+    message?: string
+    title?: string
+    detail?: string
+    errors?: Record<string, string[]> | string[]
+  } | undefined
+
+  if (Array.isArray(data?.errors) && data.errors.length) {
+    return data.errors.join(' ')
+  }
+
+  if (data?.errors && !Array.isArray(data.errors)) {
+    return Object.values(data.errors).flat().join(' ')
+  }
+
+  return data?.detail ?? data?.message ?? data?.title ?? fallback
 }

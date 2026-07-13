@@ -3,21 +3,24 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import EditIcon from '@mui/icons-material/Edit'
 import SaveIcon from '@mui/icons-material/Save'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import type { DragEvent } from 'react'
 import { apiClient } from '../api/client'
 import type { Workflow } from '../api/types'
 import { DataPanel } from '../components/DataPanel'
 import { SectionHeader } from '../components/SectionHeader'
+import { useAuth } from '../state/AuthContext'
 
 type BuilderStep = {
   id: string
+  existingStepId?: string
   type: 'Agent' | 'Tool' | 'HumanApproval'
   name: string
 }
 
 export function WorkflowsPage() {
   const queryClient = useQueryClient()
+  const { user } = useAuth()
   const workflows = useQuery({ queryKey: ['workflows'], queryFn: apiClient.getWorkflows })
   const agents = useQuery({ queryKey: ['agents'], queryFn: apiClient.getAgents })
   const tools = useQuery({ queryKey: ['tools'], queryFn: apiClient.getTools })
@@ -26,6 +29,8 @@ export function WorkflowsPage() {
   const [editingWorkflowId, setEditingWorkflowId] = useState<string | undefined>()
   const [search, setSearch] = useState('')
   const [steps, setSteps] = useState<BuilderStep[]>([])
+  const formRef = useRef<HTMLDivElement | null>(null)
+  const canModify = (workflow: Workflow) => Boolean(user?.roles.includes('Admin') || !workflow.createdByUserId || workflow.createdByUserId === user?.userId)
 
   const searchableAgents = useMemo(() => {
     const value = search.toLowerCase()
@@ -71,11 +76,25 @@ export function WorkflowsPage() {
   })
 
   const updateWorkflow = useMutation({
-    mutationFn: () => apiClient.updateWorkflow(editingWorkflowId!, {
-      name: workflowName,
-      description: workflowDescription,
-      status: 'Active',
-    }),
+    mutationFn: async () => {
+      const workflowId = editingWorkflowId!
+      const existingWorkflow = await apiClient.getWorkflow(workflowId)
+      await apiClient.updateWorkflow(workflowId, {
+        name: workflowName,
+        description: workflowDescription,
+        status: 'Active',
+      })
+
+      for (const step of existingWorkflow.steps ?? []) {
+        await apiClient.deleteWorkflowStep(workflowId, step.id)
+      }
+
+      for (const [index, step] of steps.entries()) {
+        await apiClient.createWorkflowStep(workflowId, buildWorkflowStepRequest(step, index))
+      }
+
+      return apiClient.getWorkflow(workflowId)
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workflows'] })
       resetWorkflowForm()
@@ -112,7 +131,17 @@ export function WorkflowsPage() {
     setEditingWorkflowId(workflow.id)
     setWorkflowName(workflow.name)
     setWorkflowDescription(workflow.description ?? '')
-    setSteps([])
+    setSteps((workflow.steps ?? []).sort((left, right) => left.order - right.order).map((step) => {
+      const agent = (agents.data?.items ?? []).find((item) => item.id === step.agentId)
+      const tool = (tools.data?.items ?? []).find((item) => item.id === step.toolId)
+      return {
+        id: step.stepType === 'Agent' ? step.agentId ?? step.id : step.stepType === 'Tool' ? step.toolId ?? step.id : 'human-approval',
+        existingStepId: step.id,
+        type: step.stepType as BuilderStep['type'],
+        name: agent?.name ?? tool?.name ?? step.name,
+      }
+    }))
+    window.setTimeout(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0)
   }
 
   return (
@@ -120,7 +149,7 @@ export function WorkflowsPage() {
       <SectionHeader eyebrow="Workflow Builder" title={editingWorkflowId ? 'Edit workflow details' : 'Search agents, drag steps, create orchestration'} />
       <Grid container spacing={2.5} sx={{ mb: 2.5 }}>
         <Grid size={{ xs: 12, lg: 5 }}>
-          <Paper sx={{ p: 3 }}>
+          <Paper ref={formRef} sx={{ p: 3 }}>
             <Typography variant="h5">Agent and Tool Search</Typography>
             <TextField label="Search by project, role, tag, category" value={search} onChange={(e) => setSearch(e.target.value)} fullWidth sx={{ my: 2 }} />
             <Stack spacing={1.2}>
@@ -153,7 +182,7 @@ export function WorkflowsPage() {
                 />
               </Grid>
             </Grid>
-            {!editingWorkflowId && <Box
+            <Box
               onDragOver={(event) => event.preventDefault()}
               onDrop={dropStep}
               sx={{
@@ -181,18 +210,13 @@ export function WorkflowsPage() {
                   ))}
                 </Stack>
               )}
-            </Box>}
-            {editingWorkflowId && (
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                Step editing will be handled in the workflow step builder. This edit updates the workflow name and description.
-              </Typography>
-            )}
+            </Box>
             <Button
               sx={{ mt: 2 }}
               variant="contained"
               startIcon={<SaveIcon />}
               onClick={() => (editingWorkflowId ? updateWorkflow.mutate() : createWorkflow.mutate())}
-              disabled={!workflowName || (!editingWorkflowId && steps.length === 0) || createWorkflow.isPending || updateWorkflow.isPending}
+              disabled={!workflowName || steps.length === 0 || createWorkflow.isPending || updateWorkflow.isPending}
             >
               {editingWorkflowId ? 'Save Workflow' : 'Create Workflow'}
             </Button>
@@ -238,23 +262,30 @@ export function WorkflowsPage() {
             ),
           },
           { key: 'id', label: 'ID', render: (row) => <Typography variant="caption">{row.id}</Typography> },
+          { key: 'owner', label: 'Owner', render: (row) => row.createdByDisplayName || 'system' },
           {
             key: 'actions',
             label: 'Actions',
             render: (row) => (
               <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap' }}>
-                <Button size="small" variant="outlined" startIcon={<EditIcon />} onClick={() => editWorkflow(row)}>
-                  Edit
-                </Button>
-                <Button
-                  size="small"
-                  color="error"
-                  variant="outlined"
-                  startIcon={<DeleteIcon />}
-                  onClick={() => window.confirm(`Delete workflow "${row.name}"?`) && deleteWorkflow.mutate(row.id)}
-                >
-                  Delete
-                </Button>
+                {canModify(row) ? (
+                  <>
+                    <Button size="small" variant="outlined" startIcon={<EditIcon />} onClick={() => editWorkflow(row)}>
+                      Edit
+                    </Button>
+                    <Button
+                      size="small"
+                      color="error"
+                      variant="outlined"
+                      startIcon={<DeleteIcon />}
+                      onClick={() => window.confirm(`Delete workflow "${row.name}"?`) && deleteWorkflow.mutate(row.id)}
+                    >
+                      Delete
+                    </Button>
+                  </>
+                ) : (
+                  <Chip size="small" label="View only" />
+                )}
               </Stack>
             ),
           },
@@ -262,6 +293,21 @@ export function WorkflowsPage() {
       />
     </Box>
   )
+}
+
+function buildWorkflowStepRequest(step: BuilderStep, index: number) {
+  return {
+    name: step.name,
+    order: index + 1,
+    stepType: step.type,
+    agentId: step.type === 'Agent' ? step.id : undefined,
+    toolId: step.type === 'Tool' ? step.id : undefined,
+    inputMappingJson: index === 0 ? '{"source":"original"}' : '{}',
+    configurationJson: step.type === 'HumanApproval'
+      ? '{"instructions":"Review this output before the workflow continues."}'
+      : '{}',
+    continueOnError: false,
+  }
 }
 
 const resizableTextAreaSx = {

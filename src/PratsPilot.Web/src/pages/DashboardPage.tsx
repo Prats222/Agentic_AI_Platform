@@ -106,6 +106,7 @@ export function DashboardPage() {
   const activeCount = (agents.data?.items ?? []).filter((agent) => agent.status === 'Active').length
   const activeWorkflows = (workflows.data?.items ?? []).filter((workflow) => workflow.status === 'Active').length
   const enabledTools = (tools.data?.items ?? []).filter((tool) => tool.isEnabled).length
+  const isInitialLoading = [catalog, agents, tools, workflows, executions, settings].some((query) => query.isLoading)
 
   return (
     <Box>
@@ -114,6 +115,11 @@ export function DashboardPage() {
         title="Pilot agents, workflows, and tools from one surface"
         action={<Chip color="primary" variant="outlined" label={settings.data ? `${settings.data.provider} / ${settings.data.model}` : 'AI settings'} />}
       />
+      {isInitialLoading && (
+        <Alert severity="info" sx={{ mb: 2.5 }}>
+          Waking the free backend and loading live platform data. This can take a little longer after the app has been idle.
+        </Alert>
+      )}
 
       <Grid container spacing={2.5}>
         <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
