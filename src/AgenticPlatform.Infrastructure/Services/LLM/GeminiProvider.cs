@@ -62,17 +62,39 @@ public sealed class GeminiProvider : ILLMProvider
         }
 
         using var document = JsonDocument.Parse(raw);
-        var content = document.RootElement
-            .GetProperty("candidates")[0]
-            .GetProperty("content")
-            .GetProperty("parts")[0]
-            .GetProperty("text")
-            .GetString() ?? string.Empty;
+        var content = TryReadContent(document.RootElement);
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            throw new InvalidOperationException($"Gemini returned an unexpected response shape: {raw}");
+        }
 
         return new LLMChatResponse
         {
             Content = content,
             RawResponseJson = raw
         };
+    }
+
+    private static string TryReadContent(JsonElement root)
+    {
+        if (!root.TryGetProperty("candidates", out var candidates)
+            || candidates.ValueKind != JsonValueKind.Array
+            || candidates.GetArrayLength() == 0)
+        {
+            return string.Empty;
+        }
+
+        var candidate = candidates[0];
+        if (!candidate.TryGetProperty("content", out var content)
+            || !content.TryGetProperty("parts", out var parts)
+            || parts.ValueKind != JsonValueKind.Array
+            || parts.GetArrayLength() == 0)
+        {
+            return string.Empty;
+        }
+
+        return parts[0].TryGetProperty("text", out var textElement)
+            ? textElement.GetString() ?? string.Empty
+            : string.Empty;
     }
 }

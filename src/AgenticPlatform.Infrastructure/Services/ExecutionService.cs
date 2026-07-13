@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AgenticPlatform.Core.Constants;
 using AgenticPlatform.Core.Entities;
 using AgenticPlatform.Core.Enums;
 using AgenticPlatform.Core.Interfaces;
@@ -478,7 +479,8 @@ public sealed class ExecutionService : IExecutionService
             throw new InvalidOperationException("Agent target was not found.");
         }
 
-        var enrichedPrompt = BuildAgentRuntimePrompt(agent, prompt);
+        var webContext = await TryBuildWebSearchContextAsync(agent, prompt, executionId, cancellationToken);
+        var enrichedPrompt = BuildAgentRuntimePrompt(agent, prompt, webContext);
         var chatRequest = await _aiSettingsService.BuildChatRequestAsync(agentId, prompt, cancellationToken);
         if (chatRequest is null)
         {
@@ -513,12 +515,60 @@ public sealed class ExecutionService : IExecutionService
         return new AgentRunResult(chatRequest.Provider, chatRequest.Model, response.Content);
     }
 
-    private static string BuildAgentRuntimePrompt(Agent agent, string userPrompt)
+    private async Task<string?> TryBuildWebSearchContextAsync(Agent agent, string prompt, Guid executionId, CancellationToken cancellationToken)
+    {
+        var webSearchTool = agent.Tools.FirstOrDefault(tool =>
+            tool.Category.Equals(BuiltInToolCategories.WebSearch, StringComparison.OrdinalIgnoreCase));
+
+        if (webSearchTool is null || !ShouldUseWebSearch(prompt))
+        {
+            return null;
+        }
+
+        try
+        {
+            AddLog(executionId, ExecutionLogLevel.Information, $"Executing attached web search tool '{webSearchTool.Name}'.");
+            var inputJson = JsonSerializer.Serialize(new { query = prompt });
+            var result = await _toolExecutionService.ExecuteAsync(webSearchTool.Id, inputJson, cancellationToken);
+            if (result is null || !result.Succeeded || string.IsNullOrWhiteSpace(result.ResultJson))
+            {
+                AddLog(executionId, ExecutionLogLevel.Warning, "Attached web search tool did not return a usable result.", JsonSerializer.Serialize(new { result?.ErrorMessage }));
+                return null;
+            }
+
+            AddLog(executionId, ExecutionLogLevel.Information, "Web search context received.", result.ResultJson);
+            return result.ResultJson;
+        }
+        catch (Exception ex)
+        {
+            AddLog(executionId, ExecutionLogLevel.Warning, "Attached web search tool failed.", JsonSerializer.Serialize(new { ex.Message }));
+            return null;
+        }
+    }
+
+    private static bool ShouldUseWebSearch(string prompt)
+    {
+        var text = prompt.ToLowerInvariant();
+        return new[] { "today", "latest", "current", "weather", "score", "news", "live", "now", "yesterday", "this week", "search", "web" }
+            .Any(text.Contains);
+    }
+
+    private static string BuildAgentRuntimePrompt(Agent agent, string userPrompt, string? webSearchContext)
     {
         var sections = new List<string>
         {
             userPrompt
         };
+
+        if (!string.IsNullOrWhiteSpace(webSearchContext))
+        {
+            sections.Add($"""
+            Live web search context from an attached tool:
+            {Truncate(webSearchContext, 8000)}
+
+            Answer using this live web search context. Mention uncertainty if the snippets are not enough.
+            """);
+        }
 
         if (agent.ContextDocuments.Count > 0)
         {
@@ -544,7 +594,7 @@ public sealed class ExecutionService : IExecutionService
             Available tools attached to this agent:
             {string.Join("\n", agent.Tools.Select(tool => $"- {tool.Name} ({tool.Category}): {tool.Description}"))}
 
-            If live/current information is required, say which attached tool should be executed and what JSON input it needs.
+            Tool execution is handled by the platform runtime. If tool results are provided above, use them directly instead of saying you cannot access the web.
             """);
         }
 

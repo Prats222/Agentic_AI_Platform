@@ -5,8 +5,10 @@ using AgenticPlatform.Core.Interfaces;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Net;
 using System.Globalization;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace AgenticPlatform.API.Controllers;
 
@@ -180,6 +182,11 @@ public sealed class AISettingsController : ControllerBase
                 }
             }
 
+            if (parts.Count == 0)
+            {
+                parts.AddRange(await SearchDuckDuckGoHtmlAsync(query, cancellationToken));
+            }
+
             return string.Join("\n", parts);
         }
         catch
@@ -203,6 +210,29 @@ public sealed class AISettingsController : ControllerBase
         {
             parts.Add($"{label}: {element.GetString()}");
         }
+    }
+
+    private async Task<IReadOnlyList<string>> SearchDuckDuckGoHtmlAsync(string query, CancellationToken cancellationToken)
+    {
+        var html = await _httpClientFactory
+            .CreateClient("tool-runner")
+            .GetStringAsync($"https://duckduckgo.com/html/?q={Uri.EscapeDataString(query)}", cancellationToken);
+
+        var matches = Regex.Matches(
+            html,
+            "<a[^>]+class=\"result__a\"[^>]+href=\"(?<url>[^\"]+)\"[^>]*>(?<title>.*?)</a>.*?<a[^>]+class=\"result__snippet\"[^>]*>(?<snippet>.*?)</a>",
+            RegexOptions.IgnoreCase | RegexOptions.Singleline);
+
+        return matches
+            .Take(5)
+            .Select(match => $"Result: {CleanHtml(match.Groups["title"].Value)} - {CleanHtml(match.Groups["snippet"].Value)} Source: {WebUtility.HtmlDecode(match.Groups["url"].Value)}")
+            .ToArray();
+    }
+
+    private static string CleanHtml(string value)
+    {
+        var noTags = Regex.Replace(value, "<.*?>", string.Empty, RegexOptions.Singleline);
+        return WebUtility.HtmlDecode(noTags).Trim();
     }
 
     private async Task<IReadOnlyList<LLMModelDto>> GetOpenRouterModelsAsync(

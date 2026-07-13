@@ -1,4 +1,6 @@
+using System.Net;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using AgenticPlatform.Core.Constants;
 using AgenticPlatform.Core.Entities;
 using AgenticPlatform.Core.Interfaces;
@@ -42,6 +44,7 @@ public sealed class WebSearchToolExecutor : ToolExecutorBase, IToolExecutor
 
             using var document = JsonDocument.Parse(raw);
             var root = document.RootElement;
+            var results = new List<object>();
             var abstractText = root.TryGetProperty("AbstractText", out var abstractElement)
                 ? abstractElement.GetString()
                 : string.Empty;
@@ -52,12 +55,36 @@ public sealed class WebSearchToolExecutor : ToolExecutorBase, IToolExecutor
                 ? urlElement.GetString()
                 : string.Empty;
 
+            if (!string.IsNullOrWhiteSpace(abstractText) || !string.IsNullOrWhiteSpace(sourceUrl))
+            {
+                results.Add(new
+                {
+                    title = heading,
+                    snippet = abstractText,
+                    url = sourceUrl
+                });
+            }
+
+            if (root.TryGetProperty("RelatedTopics", out var relatedTopics) && relatedTopics.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var topic in relatedTopics.EnumerateArray().Take(6))
+                {
+                    AddRelatedTopic(results, topic);
+                }
+            }
+
+            if (results.Count == 0)
+            {
+                results.AddRange(await SearchDuckDuckGoHtmlAsync(client, query, cancellationToken));
+            }
+
             return JsonSerializer.Serialize(new
             {
                 query,
                 heading,
                 abstractText,
                 sourceUrl,
+                results,
                 raw
             });
         });
@@ -68,5 +95,55 @@ public sealed class WebSearchToolExecutor : ToolExecutorBase, IToolExecutor
         return root.TryGetProperty(propertyName, out var element) && element.ValueKind == JsonValueKind.String
             ? element.GetString()
             : null;
+    }
+
+    private static void AddRelatedTopic(List<object> results, JsonElement topic)
+    {
+        if (topic.TryGetProperty("Topics", out var nested) && nested.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var child in nested.EnumerateArray().Take(3))
+            {
+                AddRelatedTopic(results, child);
+            }
+
+            return;
+        }
+
+        var text = topic.TryGetProperty("Text", out var textElement) ? textElement.GetString() : null;
+        var url = topic.TryGetProperty("FirstURL", out var urlElement) ? urlElement.GetString() : null;
+        if (!string.IsNullOrWhiteSpace(text))
+        {
+            results.Add(new
+            {
+                title = text.Split(" - ")[0],
+                snippet = text,
+                url
+            });
+        }
+    }
+
+    private static async Task<IReadOnlyList<object>> SearchDuckDuckGoHtmlAsync(HttpClient client, string query, CancellationToken cancellationToken)
+    {
+        var html = await client.GetStringAsync($"https://duckduckgo.com/html/?q={Uri.EscapeDataString(query)}", cancellationToken);
+        var matches = Regex.Matches(
+            html,
+            "<a[^>]+class=\"result__a\"[^>]+href=\"(?<url>[^\"]+)\"[^>]*>(?<title>.*?)</a>.*?<a[^>]+class=\"result__snippet\"[^>]*>(?<snippet>.*?)</a>",
+            RegexOptions.IgnoreCase | RegexOptions.Singleline);
+
+        return matches
+            .Take(5)
+            .Select(match => (object)new
+            {
+                title = CleanHtml(match.Groups["title"].Value),
+                snippet = CleanHtml(match.Groups["snippet"].Value),
+                url = WebUtility.HtmlDecode(match.Groups["url"].Value)
+            })
+            .ToArray();
+    }
+
+    private static string CleanHtml(string value)
+    {
+        var noTags = Regex.Replace(value, "<.*?>", string.Empty, RegexOptions.Singleline);
+        return WebUtility.HtmlDecode(noTags).Trim();
     }
 }
