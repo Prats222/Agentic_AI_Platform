@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using AgenticPlatform.Core.Interfaces;
 using AgenticPlatform.Core.Models.Search;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
 namespace AgenticPlatform.Infrastructure.Services;
@@ -17,13 +18,16 @@ public sealed class WebSearchService : IWebSearchService
     ];
 
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IMemoryCache _cache;
     private readonly ILogger<WebSearchService> _logger;
 
     public WebSearchService(
         IHttpClientFactory httpClientFactory,
+        IMemoryCache cache,
         ILogger<WebSearchService> logger)
     {
         _httpClientFactory = httpClientFactory;
+        _cache = cache;
         _logger = logger;
     }
 
@@ -55,6 +59,12 @@ public sealed class WebSearchService : IWebSearchService
             return null;
         }
 
+        var cacheKey = $"weather:{locationQuery.ToLowerInvariant()}";
+        if (_cache.TryGetValue(cacheKey, out WebSearchResult? cachedResult))
+        {
+            return cachedResult;
+        }
+
         try
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -84,59 +94,93 @@ public sealed class WebSearchService : IWebSearchService
                 .Where(value => !string.IsNullOrWhiteSpace(value))
                 .Distinct());
 
-            var forecastUrl = "https://api.open-meteo.com/v1/forecast" +
-                $"?latitude={latitude.ToString(CultureInfo.InvariantCulture)}" +
-                $"&longitude={longitude.ToString(CultureInfo.InvariantCulture)}" +
-                "&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m" +
-                "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max" +
-                "&forecast_days=2&timezone=auto";
-            using var forecastResponse = await client.GetAsync(forecastUrl, timeout.Token);
+            var forecastUrl = "https://api.met.no/weatherapi/locationforecast/2.0/compact" +
+                $"?lat={latitude.ToString(CultureInfo.InvariantCulture)}" +
+                $"&lon={longitude.ToString(CultureInfo.InvariantCulture)}";
+            using var forecastRequest = new HttpRequestMessage(HttpMethod.Get, forecastUrl);
+            forecastRequest.Headers.TryAddWithoutValidation(
+                "User-Agent",
+                "PratsPilot/1.0 (+https://github.com/Prats222/Agentic_AI_Platform)");
+            using var forecastResponse = await client.SendAsync(
+                forecastRequest,
+                HttpCompletionOption.ResponseHeadersRead,
+                timeout.Token);
             if (!forecastResponse.IsSuccessStatusCode)
             {
-                _logger.LogWarning("Open-Meteo forecast returned {StatusCode} for {Location}.", forecastResponse.StatusCode, displayLocation);
+                _logger.LogWarning("MET Norway forecast returned {StatusCode} for {Location}.", forecastResponse.StatusCode, displayLocation);
                 return null;
             }
 
             using var forecastDocument = JsonDocument.Parse(await forecastResponse.Content.ReadAsStringAsync(timeout.Token));
-            var root = forecastDocument.RootElement;
-            var current = root.GetProperty("current");
-            var units = root.GetProperty("current_units");
-            var daily = root.GetProperty("daily");
-            var dailyUnits = root.GetProperty("daily_units");
-            var currentCode = current.GetProperty("weather_code").GetInt32();
-            var todayCode = daily.GetProperty("weather_code")[0].GetInt32();
-            var observedAt = current.GetProperty("time").GetString();
+            var properties = forecastDocument.RootElement.GetProperty("properties");
+            var timeseries = properties.GetProperty("timeseries")
+                .EnumerateArray()
+                .Select(item => new
+                {
+                    Element = item.Clone(),
+                    Time = DateTimeOffset.Parse(item.GetProperty("time").GetString()!, CultureInfo.InvariantCulture)
+                })
+                .OrderBy(item => Math.Abs((item.Time - DateTimeOffset.UtcNow).TotalMinutes))
+                .ToArray();
+            if (timeseries.Length == 0)
+            {
+                return null;
+            }
+
+            var currentPoint = timeseries[0];
+            var currentData = currentPoint.Element.GetProperty("data");
+            var current = currentData.GetProperty("instant").GetProperty("details");
+            var nextHour = currentData.TryGetProperty("next_1_hours", out var nextHourValue)
+                ? nextHourValue
+                : default;
+            var symbolCode = nextHour.ValueKind == JsonValueKind.Object
+                && nextHour.TryGetProperty("summary", out var summary)
+                ? GetOptionalString(summary, "symbol_code")
+                : string.Empty;
+            var precipitation = nextHour.ValueKind == JsonValueKind.Object
+                && nextHour.TryGetProperty("details", out var precipitationDetails)
+                && precipitationDetails.TryGetProperty("precipitation_amount", out var precipitationValue)
+                ? precipitationValue.GetDouble()
+                : 0;
+            var nextDay = timeseries
+                .Where(item => item.Time >= currentPoint.Time && item.Time < currentPoint.Time.AddHours(24))
+                .Select(item => item.Element.GetProperty("data").GetProperty("instant").GetProperty("details"))
+                .ToArray();
+            var minimumTemperature = nextDay.Min(item => item.GetProperty("air_temperature").GetDouble());
+            var maximumTemperature = nextDay.Max(item => item.GetProperty("air_temperature").GetDouble());
 
             var context = $"""
-                Verified current weather for {displayLocation}, observed at {observedAt} local time:
-                - Conditions: {DescribeWeatherCode(currentCode)}
-                - Temperature: {FormatNumber(current, "temperature_2m")} {GetOptionalString(units, "temperature_2m")}
-                - Feels like: {FormatNumber(current, "apparent_temperature")} {GetOptionalString(units, "apparent_temperature")}
-                - Relative humidity: {FormatNumber(current, "relative_humidity_2m")} {GetOptionalString(units, "relative_humidity_2m")}
-                - Precipitation now: {FormatNumber(current, "precipitation")} {GetOptionalString(units, "precipitation")}
-                - Wind speed: {FormatNumber(current, "wind_speed_10m")} {GetOptionalString(units, "wind_speed_10m")}
-                Today's forecast: {DescribeWeatherCode(todayCode)}, low {FormatArrayNumber(daily, "temperature_2m_min", 0)} {GetOptionalString(dailyUnits, "temperature_2m_min")}, high {FormatArrayNumber(daily, "temperature_2m_max", 0)} {GetOptionalString(dailyUnits, "temperature_2m_max")}, maximum precipitation probability {FormatArrayNumber(daily, "precipitation_probability_max", 0)} {GetOptionalString(dailyUnits, "precipitation_probability_max")}.
-                Data source: Open-Meteo weather forecast API. Forecast data may differ slightly from physical station observations.
+                Verified weather forecast for {displayLocation}, valid at {currentPoint.Time:yyyy-MM-dd HH:mm} UTC:
+                - Conditions: {DescribeSymbolCode(symbolCode)}
+                - Temperature: {FormatNumber(current, "air_temperature")} °C
+                - Relative humidity: {FormatNumber(current, "relative_humidity")} %
+                - Precipitation in the next hour: {precipitation.ToString("0.#", CultureInfo.InvariantCulture)} mm
+                - Wind speed: {FormatNumber(current, "wind_speed")} m/s
+                - Cloud cover: {FormatNumber(current, "cloud_area_fraction")} %
+                Forecast temperature range for the next 24 hours: {minimumTemperature.ToString("0.#", CultureInfo.InvariantCulture)} °C to {maximumTemperature.ToString("0.#", CultureInfo.InvariantCulture)} °C.
+                Data source: MET Norway Locationforecast. This is model forecast data rather than a physical weather-station observation.
                 """;
 
-            return new WebSearchResult
+            var result = new WebSearchResult
             {
-                Provider = "Open-Meteo",
+                Provider = "MET Norway",
                 Context = context,
                 Sources =
                 [
                     new WebSearchSource
                     {
-                        Title = $"Open-Meteo forecast for {displayLocation}",
+                        Title = $"MET Norway forecast for {displayLocation}",
                         Url = forecastUrl,
-                        Snippet = $"{DescribeWeatherCode(currentCode)}, {FormatNumber(current, "temperature_2m")} {GetOptionalString(units, "temperature_2m")}."
+                        Snippet = $"{DescribeSymbolCode(symbolCode)}, {FormatNumber(current, "air_temperature")} °C."
                     }
                 ]
             };
+            _cache.Set(cacheKey, result, TimeSpan.FromMinutes(10));
+            return result;
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or JsonException or KeyNotFoundException)
         {
-            _logger.LogWarning(exception, "Open-Meteo weather lookup failed for query {Query}.", query);
+            _logger.LogWarning(exception, "Weather lookup failed for query {Query}.", query);
             return null;
         }
     }
@@ -252,39 +296,34 @@ public sealed class WebSearchService : IWebSearchService
         };
     }
 
-    private static string DescribeWeatherCode(int code)
+    private static string DescribeSymbolCode(string code)
     {
-        return code switch
+        var normalized = Regex.Replace(code, "_(?:day|night|polartwilight)$", string.Empty);
+        return normalized switch
         {
-            0 => "clear sky",
-            1 => "mainly clear",
-            2 => "partly cloudy",
-            3 => "overcast",
-            45 or 48 => "foggy",
-            51 or 53 or 55 => "drizzle",
-            56 or 57 => "freezing drizzle",
-            61 or 63 or 65 => "rain",
-            66 or 67 => "freezing rain",
-            71 or 73 or 75 or 77 => "snow",
-            80 or 81 or 82 => "rain showers",
-            85 or 86 => "snow showers",
-            95 => "thunderstorms",
-            96 or 99 => "thunderstorms with hail",
-            _ => "unclassified conditions"
+            "clearsky" => "clear sky",
+            "fair" => "fair",
+            "partlycloudy" => "partly cloudy",
+            "cloudy" => "cloudy",
+            "fog" => "foggy",
+            "lightrain" => "light rain",
+            "rain" => "rain",
+            "heavyrain" => "heavy rain",
+            "lightrainshowers" => "light rain showers",
+            "rainshowers" => "rain showers",
+            "heavyrainshowers" => "heavy rain showers",
+            "lightsnow" => "light snow",
+            "snow" => "snow",
+            "heavysnow" => "heavy snow",
+            "sleet" => "sleet",
+            "thunderstorm" => "thunderstorms",
+            _ => string.IsNullOrWhiteSpace(normalized) ? "conditions unavailable" : normalized.Replace('_', ' ')
         };
     }
 
     private static string FormatNumber(JsonElement element, string propertyName)
     {
         return element.GetProperty(propertyName).GetDouble().ToString("0.#", CultureInfo.InvariantCulture);
-    }
-
-    private static string FormatArrayNumber(JsonElement element, string propertyName, int index)
-    {
-        var value = element.GetProperty(propertyName)[index];
-        return value.ValueKind == JsonValueKind.Null
-            ? "unavailable"
-            : value.GetDouble().ToString("0.#", CultureInfo.InvariantCulture);
     }
 
     private static string GetOptionalString(JsonElement element, string propertyName)

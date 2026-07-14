@@ -229,7 +229,7 @@ export function ChatPage() {
                   <Typography color="text.secondary" sx={{ mt: 0.8 }}>Ask a question, continue an idea, or request current information from the web.</Typography>
                 </Box>
                 <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 1 }}>
-                  {['Weather in Bangalore today', 'Design an API testing workflow', 'Latest developments in agentic AI'].map((suggestion) => (
+                  {['Weather in Bangalore today', 'Design an API testing workflow', 'Explain how agent approval gates work'].map((suggestion) => (
                     <Button key={suggestion} variant="outlined" size="small" onClick={() => setPrompt(suggestion)}>{suggestion}</Button>
                   ))}
                 </Stack>

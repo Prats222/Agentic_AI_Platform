@@ -230,6 +230,7 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 builder.Services.AddResponseCaching();
+builder.Services.AddMemoryCache();
 
 builder.Services.AddRateLimiter(options =>
 {
