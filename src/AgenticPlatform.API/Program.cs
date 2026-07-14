@@ -49,7 +49,14 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     if (databaseProvider.Equals("PostgreSql", StringComparison.OrdinalIgnoreCase)
         || databaseProvider.Equals("Postgres", StringComparison.OrdinalIgnoreCase))
     {
-        options.UseNpgsql(connectionString);
+        options.UseNpgsql(connectionString, npgsqlOptions =>
+        {
+            npgsqlOptions.CommandTimeout(60);
+            npgsqlOptions.EnableRetryOnFailure(
+                maxRetryCount: 5,
+                maxRetryDelay: TimeSpan.FromSeconds(10),
+                errorCodesToAdd: null);
+        });
         return;
     }
 
@@ -267,10 +274,30 @@ var app = builder.Build();
 
 if (builder.Configuration.GetValue<bool>("Database:EnsureCreated"))
 {
-    using var scope = app.Services.CreateScope();
-    var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    await dbContext.Database.EnsureCreatedAsync();
-    await ProductionSchemaUpgrader.UpgradeAsync(dbContext);
+    const int maximumAttempts = 5;
+    for (var attempt = 1; attempt <= maximumAttempts; attempt++)
+    {
+        try
+        {
+            await using var scope = app.Services.CreateAsyncScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            await dbContext.Database.EnsureCreatedAsync();
+            await ProductionSchemaUpgrader.UpgradeAsync(dbContext);
+            Log.Information("Database initialization completed on attempt {Attempt}.", attempt);
+            break;
+        }
+        catch (Exception exception) when (attempt < maximumAttempts)
+        {
+            var delay = TimeSpan.FromSeconds(attempt * 5);
+            Log.Warning(
+                exception,
+                "Database initialization attempt {Attempt}/{MaximumAttempts} failed. Retrying in {DelaySeconds} seconds.",
+                attempt,
+                maximumAttempts,
+                delay.TotalSeconds);
+            await Task.Delay(delay);
+        }
+    }
 }
 
 var forwardedHeadersOptions = new ForwardedHeadersOptions
