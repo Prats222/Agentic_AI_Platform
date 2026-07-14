@@ -71,6 +71,7 @@ builder.Services
 
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 builder.Services.Configure<JwtSettings>(jwtSettings);
+builder.Services.Configure<ChatHistorySettings>(builder.Configuration.GetSection("ChatHistory"));
 var signingKey = jwtSettings["Secret"]
     ?? throw new InvalidOperationException("JwtSettings:Secret is missing.");
 
@@ -136,6 +137,8 @@ builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IExecutionService, ExecutionService>();
 builder.Services.AddScoped<IAISettingsService, AISettingsService>();
+builder.Services.AddScoped<IChatService, ChatService>();
+builder.Services.AddScoped<IWebSearchService, WebSearchService>();
 builder.Services.AddScoped<ILLMProvider, GeminiProvider>();
 builder.Services.AddScoped<ILLMProvider, OpenRouterProvider>();
 builder.Services.AddScoped<ILLMProvider, GroqProvider>();
@@ -151,6 +154,11 @@ builder.Services.AddHostedService<ExecutionWorker>();
 builder.Services.AddHttpClient("tool-runner", client =>
 {
     client.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddHttpClient("live-search", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(15);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("PratsPilot/1.0");
 });
 builder.Services.AddHttpClient("llm", client =>
 {

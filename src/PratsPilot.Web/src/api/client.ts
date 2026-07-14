@@ -5,6 +5,7 @@ import type {
   ApiResponse,
   AuthResponse,
   ArenaChallenge,
+  ChatConversation,
   ContextDocument,
   CreateArenaChallengeRequest,
   CreateAgentRequest,
@@ -20,6 +21,7 @@ import type {
   PagedResult,
   Realm,
   SignUpRequest,
+  StreamChatRequest,
   Tool,
   UserAccess,
   UpdateAgentRequest,
@@ -136,6 +138,68 @@ export const apiClient = {
   executeTool: (toolId: string, inputJson: string) =>
     unwrap(api.post(`/tools/${toolId}/execute`, { inputJson })),
   chat: (request: DirectChatRequest) => unwrap<DirectChatResult>(api.post('/ai-settings/chat', request)),
+  getChatConversations: () =>
+    unwrap<ChatConversation[]>(api.get('/chat/conversations', { params: noCacheParams() })),
+  deleteChatConversation: (id: string) => api.delete(`/chat/conversations/${id}`),
+  streamChat: (request: StreamChatRequest, handlers: ChatStreamHandlers, signal: AbortSignal) =>
+    streamChat(request, handlers, signal),
+}
+
+export type ChatStreamHandlers = {
+  onConversation: (value: { conversationId: string; title: string }) => void
+  onDelta: (content: string) => void
+  onStatus: (message: string) => void
+  onDone: () => void
+  onError: (message: string) => void
+}
+
+async function streamChat(request: StreamChatRequest, handlers: ChatStreamHandlers, signal: AbortSignal) {
+  const authorization = api.defaults.headers.common.Authorization
+  const realmId = getStoredRealmId()
+  const response = await fetch(`${API_BASE_URL}/chat/stream`, {
+    method: 'POST',
+    signal,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(authorization ? { Authorization: String(authorization) } : {}),
+      ...(realmId ? { 'X-Realm-Id': realmId } : {}),
+    },
+    body: JSON.stringify(request),
+  })
+
+  if (!response.ok || !response.body) {
+    throw new Error(response.status === 401 ? 'Your session expired. Please sign in again.' : 'The chat stream could not be started.')
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  while (true) {
+    const { value, done } = await reader.read()
+    buffer += decoder.decode(value, { stream: !done }).replace(/\r\n/g, '\n')
+    const events = buffer.split('\n\n')
+    buffer = events.pop() ?? ''
+    events.forEach((eventBlock) => dispatchSseEvent(eventBlock, handlers))
+    if (done) {
+      if (buffer.trim()) dispatchSseEvent(buffer, handlers)
+      break
+    }
+  }
+}
+
+function dispatchSseEvent(eventBlock: string, handlers: ChatStreamHandlers) {
+  const lines = eventBlock.split('\n')
+  const eventName = lines.find((line) => line.startsWith('event:'))?.slice(6).trim()
+  const rawData = lines.filter((line) => line.startsWith('data:')).map((line) => line.slice(5).trim()).join('\n')
+  if (!eventName || !rawData) return
+
+  const data = JSON.parse(rawData) as Record<string, string>
+  if (eventName === 'conversation') handlers.onConversation({ conversationId: data.conversationId, title: data.title })
+  if (eventName === 'delta') handlers.onDelta(data.content)
+  if (eventName === 'status') handlers.onStatus(data.message)
+  if (eventName === 'search') handlers.onStatus(`Live context: ${data.provider}`)
+  if (eventName === 'done') handlers.onDone()
+  if (eventName === 'error') handlers.onError(data.message)
 }
 
 function noCacheParams() {

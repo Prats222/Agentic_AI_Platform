@@ -7,4 +7,5 @@ public interface ILLMProvider
 {
     AIProvider Provider { get; }
     Task<LLMChatResponse> ChatAsync(LLMChatRequest request, CancellationToken cancellationToken = default);
+    IAsyncEnumerable<LLMStreamChunk> StreamChatAsync(LLMChatRequest request, CancellationToken cancellationToken = default);
 }

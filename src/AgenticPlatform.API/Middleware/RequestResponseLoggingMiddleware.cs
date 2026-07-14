@@ -17,6 +17,23 @@ public sealed class RequestResponseLoggingMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
+        if (IsStreamingPath(context.Request.Path))
+        {
+            var streamStartedAt = DateTimeOffset.UtcNow;
+            using (LogContext.PushProperty("RequestBody", "[not logged]"))
+            {
+                await _next(context);
+            }
+
+            _logger.LogInformation(
+                "HTTP {Method} {Path} streamed response {StatusCode} in {Elapsed:0.0000} ms. RequestBody=[not logged] ResponseBody=[streamed]",
+                context.Request.Method,
+                context.Request.Path,
+                context.Response.StatusCode,
+                (DateTimeOffset.UtcNow - streamStartedAt).TotalMilliseconds);
+            return;
+        }
+
         var requestBody = await ReadRequestBodyAsync(context);
         var originalBody = context.Response.Body;
 
@@ -114,8 +131,14 @@ public sealed class RequestResponseLoggingMiddleware
     {
         return path.StartsWithSegments("/api/v1/auth", StringComparison.OrdinalIgnoreCase)
             || path.StartsWithSegments("/api/v1/ai-settings", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWithSegments("/api/v1/chat", StringComparison.OrdinalIgnoreCase)
             || path.StartsWithSegments("/api/v1/agents", StringComparison.OrdinalIgnoreCase)
             || path.StartsWithSegments("/api/v1/tools", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsStreamingPath(PathString path)
+    {
+        return path.StartsWithSegments("/api/v1/chat/stream", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string Truncate(string value)

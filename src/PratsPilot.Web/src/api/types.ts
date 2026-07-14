@@ -219,6 +219,35 @@ export type DirectChatResult = {
   rawResponseJson?: string
 }
 
+export type ChatMessage = {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  createdAt: string
+}
+
+export type ChatConversation = {
+  id: string
+  title: string
+  provider: string
+  model: string
+  createdAt: string
+  updatedAt: string
+  messages: ChatMessage[]
+}
+
+export type StreamChatRequest = {
+  conversationId?: string
+  provider: string
+  model: string
+  prompt: string
+  temperature: number
+  maxTokens: number
+  topP: number
+  systemPrompt: string
+  baseUrl?: string
+}
+
 export type LLMModel = {
   id: string
   name: string

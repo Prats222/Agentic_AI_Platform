@@ -58,7 +58,9 @@ public sealed class GlobalExceptionHandlingMiddleware
             Title = exception is LLMProviderException providerException
                 ? $"{providerException.Provider} request failed."
                 : "An unexpected error occurred.",
-            Detail = _environment.IsDevelopment() ? exception.Message : "Please contact support if the problem continues.",
+            Detail = exception is LLMProviderException || _environment.IsDevelopment()
+                ? exception.Message
+                : "Please contact support if the problem continues.",
             Status = statusCode,
             Type = $"https://httpstatuses.com/{statusCode}",
             Instance = context.Request.Path

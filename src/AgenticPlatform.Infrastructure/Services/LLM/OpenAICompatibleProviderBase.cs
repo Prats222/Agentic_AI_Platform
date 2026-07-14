@@ -1,5 +1,7 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.Json;
 using AgenticPlatform.Core.Enums;
 using AgenticPlatform.Core.Interfaces;
@@ -30,14 +32,7 @@ public abstract class OpenAICompatibleProviderBase : ILLMProvider
         }
 
         var endpoint = BuildEndpoint(request.BaseUrl, _defaultBaseUrl, "chat/completions");
-        var payload = new
-        {
-            model = request.Model,
-            messages = BuildMessages(request),
-            temperature = request.Temperature,
-            top_p = request.TopP,
-            max_tokens = request.MaxTokens
-        };
+        var payload = BuildPayload(request, false);
 
         var client = _httpClientFactory.CreateClient("llm");
         using var httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint)
@@ -54,17 +49,111 @@ public abstract class OpenAICompatibleProviderBase : ILLMProvider
         }
 
         using var document = JsonDocument.Parse(raw);
-        var content = document.RootElement
-            .GetProperty("choices")[0]
-            .GetProperty("message")
-            .GetProperty("content")
-            .GetString() ?? string.Empty;
+        var content = TryReadCompletedContent(document.RootElement);
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            throw new LLMProviderException(
+                _providerName,
+                System.Net.HttpStatusCode.BadGateway,
+                "The provider completed without returning text. Retry the request or choose another model.");
+        }
 
         return new LLMChatResponse
         {
             Content = content,
             RawResponseJson = raw
         };
+    }
+
+    public async IAsyncEnumerable<LLMStreamChunk> StreamChatAsync(
+        LLMChatRequest request,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.ApiKey))
+        {
+            throw new InvalidOperationException($"{_providerName} requires an API key.");
+        }
+
+        var endpoint = BuildEndpoint(request.BaseUrl, _defaultBaseUrl, "chat/completions");
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint)
+        {
+            Content = JsonContent.Create(BuildPayload(request, true))
+        };
+        httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", request.ApiKey);
+
+        var client = _httpClientFactory.CreateClient("llm");
+        using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = await response.Content.ReadAsStringAsync(cancellationToken);
+            throw new LLMProviderException(_providerName, response.StatusCode, error);
+        }
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var reader = new StreamReader(stream, Encoding.UTF8);
+        while (true)
+        {
+            var line = await reader.ReadLineAsync(cancellationToken);
+            if (line is null)
+            {
+                yield break;
+            }
+
+            if (string.IsNullOrWhiteSpace(line) || !line.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var data = line[5..].Trim();
+            if (data == "[DONE]")
+            {
+                yield break;
+            }
+
+            using var document = JsonDocument.Parse(data);
+            var content = TryReadDeltaContent(document.RootElement);
+            if (!string.IsNullOrEmpty(content))
+            {
+                yield return new LLMStreamChunk { Content = content };
+            }
+        }
+    }
+
+    private static object BuildPayload(LLMChatRequest request, bool stream)
+    {
+        return new
+        {
+            model = request.Model,
+            messages = BuildMessages(request),
+            temperature = request.Temperature,
+            top_p = request.TopP,
+            max_tokens = request.MaxTokens,
+            stream
+        };
+    }
+
+    private static string TryReadCompletedContent(JsonElement root)
+    {
+        return root.TryGetProperty("choices", out var choices)
+            && choices.ValueKind == JsonValueKind.Array
+            && choices.GetArrayLength() > 0
+            && choices[0].TryGetProperty("message", out var message)
+            && message.TryGetProperty("content", out var content)
+            && content.ValueKind == JsonValueKind.String
+                ? content.GetString() ?? string.Empty
+                : string.Empty;
+    }
+
+    private static string TryReadDeltaContent(JsonElement root)
+    {
+        return root.TryGetProperty("choices", out var choices)
+            && choices.ValueKind == JsonValueKind.Array
+            && choices.GetArrayLength() > 0
+            && choices[0].TryGetProperty("delta", out var delta)
+            && delta.TryGetProperty("content", out var content)
+            && content.ValueKind == JsonValueKind.String
+                ? content.GetString() ?? string.Empty
+                : string.Empty;
     }
 
     private static object[] BuildMessages(LLMChatRequest request)

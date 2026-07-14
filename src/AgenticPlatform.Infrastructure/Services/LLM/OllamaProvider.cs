@@ -78,4 +78,12 @@ public sealed class OllamaProvider : ILLMProvider
         var normalizedBaseUrl = string.IsNullOrWhiteSpace(baseUrl) ? fallbackBaseUrl : baseUrl.Trim();
         return new Uri(new Uri(normalizedBaseUrl.TrimEnd('/') + "/"), path);
     }
+
+    public async IAsyncEnumerable<LLMStreamChunk> StreamChatAsync(
+        LLMChatRequest request,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        var response = await ChatAsync(request, cancellationToken);
+        yield return new LLMStreamChunk { Content = response.Content };
+    }
 }
