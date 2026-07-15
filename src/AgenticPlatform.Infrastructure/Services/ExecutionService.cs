@@ -480,7 +480,8 @@ public sealed class ExecutionService : IExecutionService
         }
 
         var webContext = await TryBuildWebSearchContextAsync(agent, prompt, executionId, cancellationToken);
-        var enrichedPrompt = BuildAgentRuntimePrompt(agent, prompt, webContext);
+        var toolContexts = await ExecuteMatchingAttachedToolsAsync(agent, prompt, executionId, cancellationToken);
+        var enrichedPrompt = BuildAgentRuntimePrompt(agent, prompt, webContext, toolContexts);
         var chatRequest = await _aiSettingsService.BuildChatRequestAsync(agentId, prompt, cancellationToken);
         if (chatRequest is null)
         {
@@ -553,7 +554,119 @@ public sealed class ExecutionService : IExecutionService
             .Any(text.Contains);
     }
 
-    private static string BuildAgentRuntimePrompt(Agent agent, string userPrompt, string? webSearchContext)
+    private async Task<IReadOnlyCollection<AttachedToolContext>> ExecuteMatchingAttachedToolsAsync(
+        Agent agent,
+        string prompt,
+        Guid executionId,
+        CancellationToken cancellationToken)
+    {
+        var matchingTools = agent.Tools
+            .Where(tool => tool.IsEnabled
+                && !tool.Category.Equals(BuiltInToolCategories.WebSearch, StringComparison.OrdinalIgnoreCase)
+                && InputMatchesToolSchema(prompt, tool.InputSchemaJson))
+            .ToArray();
+
+        if (matchingTools.Length == 0)
+        {
+            return Array.Empty<AttachedToolContext>();
+        }
+
+        var contexts = new List<AttachedToolContext>(matchingTools.Length);
+        foreach (var tool in matchingTools)
+        {
+            AddLog(executionId, ExecutionLogLevel.Information, $"Executing attached tool '{tool.Name}'.");
+            var result = await _toolExecutionService.ExecuteAsync(tool.Id, prompt, cancellationToken);
+            if (result is null || !result.Succeeded || string.IsNullOrWhiteSpace(result.ResultJson))
+            {
+                var error = result?.ErrorMessage ?? "The tool returned no result.";
+                AddLog(executionId, ExecutionLogLevel.Error, $"Attached tool '{tool.Name}' failed.", JsonSerializer.Serialize(new { error }));
+                throw new InvalidOperationException($"Attached tool '{tool.Name}' failed: {error}");
+            }
+
+            if (TryReadToolFailure(result.ResultJson, out var toolError))
+            {
+                AddLog(executionId, ExecutionLogLevel.Error, $"Attached tool '{tool.Name}' returned an error.", result.ResultJson);
+                throw new InvalidOperationException($"Attached tool '{tool.Name}' failed: {toolError}");
+            }
+
+            AddLog(executionId, ExecutionLogLevel.Information, $"Attached tool '{tool.Name}' returned grounded context.", result.ResultJson);
+            contexts.Add(new AttachedToolContext(tool.Name, result.ResultJson));
+        }
+
+        return contexts;
+    }
+
+    private static bool InputMatchesToolSchema(string inputJson, string schemaJson)
+    {
+        try
+        {
+            using var inputDocument = JsonDocument.Parse(inputJson);
+            using var schemaDocument = JsonDocument.Parse(schemaJson);
+            if (inputDocument.RootElement.ValueKind != JsonValueKind.Object
+                || schemaDocument.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                return false;
+            }
+
+            var input = inputDocument.RootElement;
+            var schema = schemaDocument.RootElement;
+            var requiredProperties = schema.TryGetProperty("required", out var required)
+                && required.ValueKind == JsonValueKind.Array
+                    ? required.EnumerateArray()
+                        .Where(item => item.ValueKind == JsonValueKind.String)
+                        .Select(item => item.GetString()!)
+                        .ToArray()
+                    : Array.Empty<string>();
+
+            if (requiredProperties.Length > 0)
+            {
+                return requiredProperties.All(property => input.TryGetProperty(property, out _));
+            }
+
+            if (!schema.TryGetProperty("properties", out var properties)
+                || properties.ValueKind != JsonValueKind.Object)
+            {
+                return false;
+            }
+
+            return properties.EnumerateObject().Any(property => input.TryGetProperty(property.Name, out _));
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    private static bool TryReadToolFailure(string resultJson, out string error)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(resultJson);
+            var root = document.RootElement;
+            if (root.ValueKind == JsonValueKind.Object
+                && root.TryGetProperty("success", out var success)
+                && success.ValueKind == JsonValueKind.False)
+            {
+                error = root.TryGetProperty("message", out var message) && message.ValueKind == JsonValueKind.String
+                    ? message.GetString() ?? "The tool reported an error."
+                    : "The tool reported an error.";
+                return true;
+            }
+        }
+        catch (JsonException)
+        {
+            // A successful executor may return plain text, which is still valid grounding context.
+        }
+
+        error = string.Empty;
+        return false;
+    }
+
+    private static string BuildAgentRuntimePrompt(
+        Agent agent,
+        string userPrompt,
+        string? webSearchContext,
+        IReadOnlyCollection<AttachedToolContext> toolContexts)
     {
         var sections = new List<string>
         {
@@ -567,6 +680,16 @@ public sealed class ExecutionService : IExecutionService
             {Truncate(webSearchContext, 8000)}
 
             Answer using this live web search context. Mention uncertainty if the snippets are not enough.
+            """);
+        }
+
+        if (toolContexts.Count > 0)
+        {
+            sections.Add($"""
+            Verified output from tools executed by the platform:
+            {string.Join("\n\n", toolContexts.Select(context => $"### {context.ToolName}\n{Truncate(context.ResultJson, 12000)}"))}
+
+            Base the answer only on the verified tool output above. Do not invent repository files, technologies, metadata, or results that are absent from it. If the data is insufficient, state exactly what is missing.
             """);
         }
 
@@ -680,6 +803,8 @@ public sealed class ExecutionService : IExecutionService
     }
 
     private sealed record AgentRunResult(AIProvider Provider, string Model, string Content);
+
+    private sealed record AttachedToolContext(string ToolName, string ResultJson);
 
     private sealed record WorkflowStepRuntimeOutput(
         Guid StepId,
