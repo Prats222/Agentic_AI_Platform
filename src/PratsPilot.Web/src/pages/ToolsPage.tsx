@@ -1,29 +1,28 @@
 import { Alert, Box, Button, Chip, MenuItem, Paper, Stack, TextField, Typography } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
+import DeleteIcon from '@mui/icons-material/Delete'
+import EditIcon from '@mui/icons-material/Edit'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
+import SaveIcon from '@mui/icons-material/Save'
 import axios from 'axios'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { apiClient } from '../api/client'
 import type { Tool } from '../api/types'
 import { DataPanel } from '../components/DataPanel'
 import { SectionHeader } from '../components/SectionHeader'
+import { useAuth } from '../state/AuthContext'
 
 export function ToolsPage() {
   const queryClient = useQueryClient()
+  const { user } = useAuth()
   const tools = useQuery({ queryKey: ['tools'], queryFn: apiClient.getTools })
   const catalog = useQuery({ queryKey: ['demoCatalog'], queryFn: apiClient.getDemoCatalog })
+  const formRef = useRef<HTMLDivElement>(null)
   const [selectedToolId, setSelectedToolId] = useState('')
+  const [editingToolId, setEditingToolId] = useState('')
   const [inputJson, setInputJson] = useState('{"expression":"(8 + 2) * 3"}')
-  const [form, setForm] = useState({
-    name: '',
-    description: '',
-    category: 'PythonScript',
-    inputSchemaJson: '{"type":"object"}',
-    endpointUrl: pythonTemplate,
-    secretJson: '{}',
-    isEnabled: true,
-  })
+  const [form, setForm] = useState(emptyToolForm)
 
   const execute = useMutation({
     mutationFn: () => apiClient.executeTool(selectedToolId, inputJson),
@@ -32,24 +31,55 @@ export function ToolsPage() {
     mutationFn: () => apiClient.createTool(form),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tools'] })
-      setForm({
-        name: '',
-        description: '',
-        category: 'PythonScript',
-        inputSchemaJson: '{"type":"object"}',
-        endpointUrl: pythonTemplate,
-        secretJson: '{}',
-        isEnabled: true,
-      })
+      resetForm()
     },
   })
+  const updateTool = useMutation({
+    mutationFn: () => apiClient.updateTool(editingToolId, {
+      ...form,
+      secretJson: form.secretJson.trim() || undefined,
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tools'] })
+      resetForm()
+    },
+  })
+  const deleteTool = useMutation({
+    mutationFn: (id: string) => apiClient.deleteTool(id),
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ['tools'] })
+      if (selectedToolId === id) setSelectedToolId('')
+      if (editingToolId === id) resetForm()
+    },
+  })
+
+  const canModify = (tool: Tool) => Boolean(user?.roles.includes('Admin') || !tool.createdByUserId || tool.createdByUserId === user?.userId)
+
+  function resetForm() {
+    setEditingToolId('')
+    setForm(emptyToolForm())
+  }
+
+  function editTool(tool: Tool) {
+    setEditingToolId(tool.id)
+    setForm({
+      name: tool.name,
+      description: tool.description ?? '',
+      category: tool.category,
+      inputSchemaJson: tool.inputSchemaJson,
+      endpointUrl: tool.endpointUrl,
+      secretJson: '',
+      isEnabled: tool.isEnabled,
+    })
+    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   return (
     <Box>
       <SectionHeader eyebrow="Tool Engine" title="Built-ins and callable capabilities" />
       <Stack spacing={2.5}>
-        <Paper sx={{ p: 3 }}>
-          <Typography variant="h5">Create Tool</Typography>
+        <Paper ref={formRef} sx={{ p: 3 }}>
+          <Typography variant="h5">{editingToolId ? 'Edit Tool' : 'Create Tool'}</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             Python tools receive input JSON on stdin and should print JSON to stdout.
           </Typography>
@@ -96,14 +126,26 @@ export function ToolsPage() {
               multiline
               minRows={4}
               fullWidth
-              helperText={'Stored server-side and injected as data["secrets"] during execution. Example: {"githubToken":"..."}'}
+              helperText={editingToolId && !form.secretJson
+                ? 'Leave empty to keep the existing stored secrets.'
+                : 'Stored server-side and injected as data["secrets"] during execution. Example: {"githubToken":"..."}'}
               sx={{ gridColumn: { lg: '1 / -1' }, ...resizableTextAreaSx, '& textarea': { fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 13 } }}
             />
-            <Button variant="contained" startIcon={<AddIcon />} onClick={() => createTool.mutate()} disabled={!form.name || createTool.isPending}>
-              Create Tool
+            <Button
+              variant="contained"
+              startIcon={editingToolId ? <SaveIcon /> : <AddIcon />}
+              onClick={() => (editingToolId ? updateTool.mutate() : createTool.mutate())}
+              disabled={!form.name || createTool.isPending || updateTool.isPending}
+            >
+              {editingToolId ? 'Save Tool' : 'Create Tool'}
             </Button>
+            {editingToolId && <Button variant="outlined" onClick={resetForm}>Cancel</Button>}
             {createTool.isSuccess && <Alert severity="success">Tool created.</Alert>}
-            {createTool.isError && <Alert severity="error">{getErrorMessage(createTool.error)}</Alert>}
+            {updateTool.isSuccess && <Alert severity="success">Tool updated.</Alert>}
+            {deleteTool.isSuccess && <Alert severity="success">Tool deleted.</Alert>}
+            {(createTool.isError || updateTool.isError || deleteTool.isError) && (
+              <Alert severity="error">{getErrorMessage(createTool.error ?? updateTool.error ?? deleteTool.error)}</Alert>
+            )}
           </Box>
         </Paper>
         <DataPanel<Tool>
@@ -119,7 +161,7 @@ export function ToolsPage() {
                 <Box>
                   <Typography sx={{ fontWeight: 900 }}>{row.name}</Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {row.endpointUrl}
+                    {row.description || 'No description'}
                   </Typography>
                 </Box>
               ),
@@ -130,19 +172,37 @@ export function ToolsPage() {
             { key: 'owner', label: 'Owner', render: (row) => row.createdByDisplayName || 'system' },
             {
               key: 'action',
-              label: 'Try',
+              label: 'Actions',
               render: (row) => (
-                <Button
-                  size="small"
-                  variant="outlined"
-                  onClick={() => {
-                    setSelectedToolId(row.id)
-                    const sample = catalog.data?.tools.find((tool) => tool.id === row.id)?.sampleInputJson
-                    setInputJson(sample ?? buildSampleInput(row.inputSchemaJson))
-                  }}
-                >
-                  Load
-                </Button>
+                <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap' }}>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={() => {
+                      setSelectedToolId(row.id)
+                      const sample = catalog.data?.tools.find((tool) => tool.id === row.id)?.sampleInputJson
+                      setInputJson(sample ?? buildSampleInput(row.inputSchemaJson))
+                    }}
+                  >
+                    Load
+                  </Button>
+                  {canModify(row) ? (
+                    <>
+                      <Button size="small" variant="outlined" startIcon={<EditIcon />} onClick={() => editTool(row)}>
+                        Edit
+                      </Button>
+                      <Button
+                        size="small"
+                        color="error"
+                        variant="outlined"
+                        startIcon={<DeleteIcon />}
+                        onClick={() => window.confirm(`Delete tool "${row.name}"? It will also be removed from agents and workflows.`) && deleteTool.mutate(row.id)}
+                      >
+                        Delete
+                      </Button>
+                    </>
+                  ) : <Chip size="small" label="View only" />}
+                </Stack>
               ),
             },
           ]}
@@ -190,6 +250,18 @@ const resizableTextAreaSx = {
   '& textarea': {
     resize: 'vertical',
   },
+}
+
+function emptyToolForm() {
+  return {
+    name: '',
+    description: '',
+    category: 'PythonScript',
+    inputSchemaJson: '{"type":"object"}',
+    endpointUrl: pythonTemplate,
+    secretJson: '{}',
+    isEnabled: true,
+  }
 }
 
 const pythonTemplate = `import json

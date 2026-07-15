@@ -225,8 +225,41 @@ public sealed class ToolsController : ControllerBase
             return Forbid();
         }
 
+        var agents = await _unitOfWork.Agents.Query()
+            .Include(agent => agent.Tools)
+            .Where(agent => agent.Tools.Any(assignedTool => assignedTool.Id == id))
+            .ToListAsync(cancellationToken);
+
+        var workflowSteps = await _unitOfWork.Repository<WorkflowStep>()
+            .Query()
+            .Where(step => step.ToolId == id)
+            .ToListAsync(cancellationToken);
+
+        var workflowStepIds = workflowSteps.Select(step => step.Id).ToArray();
+        var approvalRequests = workflowStepIds.Length == 0
+            ? new List<HumanApprovalRequest>()
+            : await _unitOfWork.Repository<HumanApprovalRequest>()
+                .Query()
+                .Where(approval => workflowStepIds.Contains(approval.WorkflowStepId))
+                .ToListAsync(cancellationToken);
+
+        foreach (var agent in agents)
+        {
+            agent.Tools.Remove(tool);
+        }
+
+        _unitOfWork.Repository<HumanApprovalRequest>().RemoveRange(approvalRequests);
+        _unitOfWork.Repository<WorkflowStep>().RemoveRange(workflowSteps);
         _unitOfWork.Tools.Remove(tool);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            return Conflict(ApiResponse<object>.Fail("Tool cannot be deleted because it is still referenced by related records."));
+        }
 
         return NoContent();
     }
