@@ -12,6 +12,7 @@ import {
   Snackbar,
   Stack,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
@@ -63,7 +64,7 @@ export function ExecutionsPage() {
     <Box>
       <SectionHeader eyebrow="Telemetry" title="Execution history and outputs" />
       <Grid container spacing={2.5}>
-        <Grid size={{ xs: 12, lg: 5 }}>
+        <Grid size={{ xs: 12, lg: 5 }} sx={{ minWidth: 0 }}>
           <DataPanel<Execution>
             title="Recent Executions"
             subtitle={`Showing latest ${pageSize} runs`}
@@ -74,15 +75,28 @@ export function ExecutionsPage() {
                 key: 'id',
                 label: 'Execution',
                 render: (row) => (
-                  <Box onClick={() => setSelectedId(row.id)} sx={{ cursor: 'pointer' }}>
+                  <Box onClick={() => setSelectedId(row.id)} sx={{ cursor: 'pointer', minWidth: 0, maxWidth: 270 }}>
                     <Typography sx={{ fontWeight: 900 }}>{row.targetType}</Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', overflowWrap: 'anywhere' }}>
                       {row.id}
                     </Typography>
                     {row.errorMessage && (
-                      <Typography variant="caption" color="error" sx={{ display: 'block', mt: 0.4 }}>
-                        {row.errorMessage}
-                      </Typography>
+                      <Tooltip title={row.errorMessage} placement="bottom-start" arrow>
+                        <Typography
+                          variant="caption"
+                          color="error"
+                          sx={{
+                            display: '-webkit-box',
+                            mt: 0.4,
+                            overflow: 'hidden',
+                            overflowWrap: 'anywhere',
+                            WebkitBoxOrient: 'vertical',
+                            WebkitLineClamp: 3,
+                          }}
+                        >
+                          {summarizeExecutionError(row.errorMessage)}
+                        </Typography>
+                      </Tooltip>
                     )}
                   </Box>
                 ),
@@ -129,8 +143,8 @@ export function ExecutionsPage() {
             <MenuItem value={100}>Latest 100</MenuItem>
           </TextField>
         </Grid>
-        <Grid size={{ xs: 12, lg: 7 }}>
-          <Paper sx={{ p: 3, minHeight: 500 }}>
+        <Grid size={{ xs: 12, lg: 7 }} sx={{ minWidth: 0 }}>
+          <Paper sx={{ p: 3, minHeight: 500, overflow: 'hidden' }}>
             <Typography variant="h5">Output Viewer</Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               Select an execution to inspect final output, step outputs, and runtime logs.
@@ -140,7 +154,7 @@ export function ExecutionsPage() {
             {selected && parsed && (
               <Stack spacing={2}>
                 <Paper variant="outlined" sx={{ p: 2, bgcolor: 'rgba(54,211,201,0.05)' }}>
-                  <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
+                  <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                     <Typography variant="h6">Final Output</Typography>
                     <Stack direction="row" sx={{ gap: 1, alignItems: 'center' }}>
                       <Button size="small" variant="outlined" startIcon={<ContentCopyIcon />} onClick={() => navigator.clipboard.writeText(parsed.finalText)}>
@@ -154,12 +168,25 @@ export function ExecutionsPage() {
                       )}
                     </Stack>
                   </Stack>
-                  {selected.errorMessage && <Alert severity="error" sx={{ mt: 1.5 }}>{selected.errorMessage}</Alert>}
+                  {selected.errorMessage && (
+                    <Alert
+                      severity="error"
+                      sx={{
+                        mt: 1.5,
+                        maxHeight: 180,
+                        overflow: 'auto',
+                        '& .MuiAlert-message': { minWidth: 0, overflowWrap: 'anywhere' },
+                      }}
+                    >
+                      {selected.errorMessage}
+                    </Alert>
+                  )}
                   <Typography
                     component="pre"
                     sx={{
                       mt: 1.5,
                       whiteSpace: 'pre-wrap',
+                      overflowWrap: 'anywhere',
                       overflow: 'auto',
                       maxHeight: 520,
                       p: 1.5,
@@ -336,6 +363,22 @@ function tryParse(value?: string) {
   } catch {
     return undefined
   }
+}
+
+function summarizeExecutionError(error: string) {
+  const status = error.match(/\b(400|401|403|404|408|409|429|500|502|503|504)\b/)?.[1]
+  const provider = error.match(/^(Gemini|Groq|OpenRouter)/i)?.[1]
+
+  if (status === '429') {
+    return `${provider ?? 'AI provider'} quota or rate limit exceeded (429). Retry later or switch provider.`
+  }
+
+  if (status === '502' || status === '503' || status === '504') {
+    return `${provider ?? 'AI provider'} is temporarily unavailable (${status}). Retry or switch provider.`
+  }
+
+  const compact = error.replace(/\s+/g, ' ').trim()
+  return compact.length > 180 ? `${compact.slice(0, 177)}...` : compact
 }
 
 const monoSx = {
