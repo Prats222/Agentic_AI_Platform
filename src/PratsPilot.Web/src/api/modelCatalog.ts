@@ -16,10 +16,12 @@ export const fallbackModelCatalog: Record<string, string[]> = {
     'llama-3.3-70b-versatile',
     'qwen/qwen3-32b',
   ],
+  Cerebras: ['gpt-oss-120b', 'zai-glm-4.7'],
 }
 
 export const providerDefaults: Record<string, { model: string; baseUrl: string }> = {
   Gemini: { model: 'gemini-3.1-flash-lite', baseUrl: 'https://generativelanguage.googleapis.com/v1beta' },
   OpenRouter: { model: 'openrouter/free', baseUrl: 'https://openrouter.ai/api/v1' },
   Groq: { model: 'meta-llama/llama-4-scout-17b-16e-instruct', baseUrl: 'https://api.groq.com/openai/v1' },
+  Cerebras: { model: 'gpt-oss-120b', baseUrl: 'https://api.cerebras.ai/v1' },
 }

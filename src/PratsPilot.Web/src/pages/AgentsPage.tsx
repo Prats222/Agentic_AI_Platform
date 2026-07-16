@@ -187,6 +187,7 @@ export function AgentsPage() {
                 <TextField select label="Provider" value={form.aiProvider} onChange={(e) => setProvider(e.target.value)} fullWidth>
                   <MenuItem value="Gemini">Gemini</MenuItem>
                   <MenuItem value="Groq">Groq</MenuItem>
+                  <MenuItem value="Cerebras">Cerebras</MenuItem>
                   <MenuItem value="OpenRouter">OpenRouter</MenuItem>
                 </TextField>
               </Grid>

@@ -6,5 +6,6 @@ public enum AIProvider
     Ollama = 2,
     OpenRouter = 3,
     Groq = 4,
-    DeepSeek = 5
+    DeepSeek = 5,
+    Cerebras = 6
 }

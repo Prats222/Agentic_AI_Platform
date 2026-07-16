@@ -149,6 +149,7 @@ builder.Services.AddScoped<IWebSearchService, WebSearchService>();
 builder.Services.AddScoped<ILLMProvider, GeminiProvider>();
 builder.Services.AddScoped<ILLMProvider, OpenRouterProvider>();
 builder.Services.AddScoped<ILLMProvider, GroqProvider>();
+builder.Services.AddScoped<ILLMProvider, CerebrasProvider>();
 builder.Services.AddScoped<ILLMProviderFactory, LLMProviderFactory>();
 builder.Services.AddScoped<IToolExecutionService, ToolExecutionService>();
 builder.Services.AddScoped<IToolExecutor, CalculatorToolExecutor>();

@@ -49,6 +49,9 @@ public sealed class AISettingsConfiguration : IEntityTypeConfiguration<AISetting
         builder.Property(settings => settings.GroqApiKey)
             .HasMaxLength(4000);
 
+        builder.Property(settings => settings.CerebrasApiKey)
+            .HasMaxLength(4000);
+
         builder.Property(settings => settings.DeepSeekApiKey)
             .HasMaxLength(4000);
 

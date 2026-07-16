@@ -38,8 +38,8 @@ public sealed class UpdateAISettingsDtoValidator : AbstractValidator<UpdateAISet
             .WithMessage("BaseUrl must be a valid absolute URL.");
 
         RuleFor(request => request.Provider)
-            .Must(provider => provider is AIProvider.Gemini or AIProvider.OpenRouter or AIProvider.Groq)
-            .WithMessage("Only Gemini, Groq, and OpenRouter are currently supported.");
+            .Must(provider => provider is AIProvider.Gemini or AIProvider.OpenRouter or AIProvider.Groq or AIProvider.Cerebras)
+            .WithMessage("Only Gemini, Groq, Cerebras, and OpenRouter are currently supported.");
     }
 
     private static bool BeValidAbsoluteUri(string? value)

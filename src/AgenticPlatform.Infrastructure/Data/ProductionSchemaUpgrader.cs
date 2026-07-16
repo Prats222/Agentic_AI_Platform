@@ -42,6 +42,7 @@ public static class ProductionSchemaUpgrader
         await dbContext.Database.ExecuteSqlRawAsync(
             """
             ALTER TABLE "Tools" ADD COLUMN IF NOT EXISTS "SecretJson" text NOT NULL DEFAULT '{{}}';
+            ALTER TABLE "AISettings" ADD COLUMN IF NOT EXISTS "CerebrasApiKey" character varying(4000) NULL;
 
             CREATE TABLE IF NOT EXISTS "ChatConversations" (
                 "Id" uuid NOT NULL,

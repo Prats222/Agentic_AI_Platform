@@ -211,6 +211,7 @@ export function ChatPage() {
             <TextField select size="small" label="Provider" value={provider} onChange={(event) => changeProvider(event.target.value)} disabled={isStreaming} sx={{ minWidth: 150 }}>
               <MenuItem value="Gemini">Gemini</MenuItem>
               <MenuItem value="Groq">Groq</MenuItem>
+              <MenuItem value="Cerebras">Cerebras</MenuItem>
               <MenuItem value="OpenRouter">OpenRouter</MenuItem>
             </TextField>
             <TextField select size="small" label="Model" value={model} onChange={(event) => setModel(event.target.value)} disabled={isStreaming} sx={{ minWidth: 230 }}>

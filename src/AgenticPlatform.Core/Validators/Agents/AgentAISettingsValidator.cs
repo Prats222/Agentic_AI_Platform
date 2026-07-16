@@ -11,8 +11,8 @@ internal sealed class AgentAISettingsValidator<T> : AbstractValidator<T>
     {
         RuleFor(request => GetAIProvider(request))
             .IsInEnum()
-            .Must(provider => provider is null or AIProvider.Gemini or AIProvider.OpenRouter or AIProvider.Groq)
-            .WithMessage("Only Gemini, Groq, and OpenRouter are currently supported.")
+            .Must(provider => provider is null or AIProvider.Gemini or AIProvider.OpenRouter or AIProvider.Groq or AIProvider.Cerebras)
+            .WithMessage("Only Gemini, Groq, Cerebras, and OpenRouter are currently supported.")
             .When(request => GetAIProvider(request).HasValue)
             .WithName("AIProvider");
 

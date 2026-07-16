@@ -23,6 +23,7 @@ public abstract class OpenAICompatibleProviderBase : ILLMProvider
     }
 
     public abstract AIProvider Provider { get; }
+    protected virtual string MaxTokensParameter => "max_tokens";
 
     public async Task<LLMChatResponse> ChatAsync(LLMChatRequest request, CancellationToken cancellationToken = default)
     {
@@ -119,16 +120,16 @@ public abstract class OpenAICompatibleProviderBase : ILLMProvider
         }
     }
 
-    private static object BuildPayload(LLMChatRequest request, bool stream)
+    private object BuildPayload(LLMChatRequest request, bool stream)
     {
-        return new
+        return new Dictionary<string, object?>
         {
-            model = request.Model,
-            messages = BuildMessages(request),
-            temperature = request.Temperature,
-            top_p = request.TopP,
-            max_tokens = request.MaxTokens,
-            stream
+            ["model"] = request.Model,
+            ["messages"] = BuildMessages(request),
+            ["temperature"] = request.Temperature,
+            ["top_p"] = request.TopP,
+            [MaxTokensParameter] = request.MaxTokens,
+            ["stream"] = stream
         };
     }
 

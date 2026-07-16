@@ -15,6 +15,7 @@ public sealed class AISettingsDto
     public bool HasGeminiApiKey { get; set; }
     public bool HasOpenRouterApiKey { get; set; }
     public bool HasGroqApiKey { get; set; }
+    public bool HasCerebrasApiKey { get; set; }
     public bool HasDeepSeekApiKey { get; set; }
     public string? BaseUrl { get; set; }
     public DateTimeOffset CreatedAt { get; set; }

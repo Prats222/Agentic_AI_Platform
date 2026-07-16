@@ -191,6 +191,7 @@ export type AISettings = {
   hasGeminiApiKey: boolean
   hasOpenRouterApiKey: boolean
   hasGroqApiKey: boolean
+  hasCerebrasApiKey: boolean
   hasDeepSeekApiKey: boolean
   baseUrl?: string
 }

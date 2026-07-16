@@ -10,8 +10,8 @@ public sealed class DirectChatDtoValidator : AbstractValidator<DirectChatDto>
     {
         RuleFor(request => request.Provider)
             .IsInEnum()
-            .Must(provider => provider is AIProvider.Gemini or AIProvider.OpenRouter or AIProvider.Groq)
-            .WithMessage("Only Gemini, Groq, and OpenRouter are currently supported.");
+            .Must(provider => provider is AIProvider.Gemini or AIProvider.OpenRouter or AIProvider.Groq or AIProvider.Cerebras)
+            .WithMessage("Only Gemini, Groq, Cerebras, and OpenRouter are currently supported.");
 
         RuleFor(request => request.Model)
             .NotEmpty()

@@ -23,7 +23,7 @@ export function AISettingsPage() {
   const settings = useQuery({ queryKey: ['aiSettings'], queryFn: apiClient.getAISettings })
   const [form, setForm] = useState({
     provider: 'Gemini',
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3.1-flash-lite',
     temperature: 0.2,
     maxTokens: 2048,
     topP: 0.9,
@@ -90,6 +90,7 @@ export function AISettingsPage() {
     form.provider === 'Gemini' ? settings.data?.hasGeminiApiKey :
     form.provider === 'OpenRouter' ? settings.data?.hasOpenRouterApiKey :
     form.provider === 'Groq' ? settings.data?.hasGroqApiKey :
+    form.provider === 'Cerebras' ? settings.data?.hasCerebrasApiKey :
     settings.data?.hasApiKey
 
   return (
@@ -105,6 +106,7 @@ export function AISettingsPage() {
             <TextField select label="Provider" value={form.provider} onChange={(event) => setProvider(event.target.value)} fullWidth>
               <MenuItem value="Gemini">Gemini</MenuItem>
               <MenuItem value="Groq">Groq</MenuItem>
+              <MenuItem value="Cerebras">Cerebras</MenuItem>
               <MenuItem value="OpenRouter">OpenRouter</MenuItem>
             </TextField>
           </Grid>
@@ -124,6 +126,11 @@ export function AISettingsPage() {
             {form.provider === 'Groq' && (
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.8 }}>
                 Groq is fast and has a free developer tier, but rate limits still apply.
+              </Typography>
+            )}
+            {form.provider === 'Cerebras' && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.8 }}>
+                Cerebras offers a free developer tier with very fast inference; organization rate limits still apply.
               </Typography>
             )}
           </Grid>

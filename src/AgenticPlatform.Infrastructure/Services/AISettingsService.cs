@@ -166,6 +166,7 @@ public sealed class AISettingsService : IAISettingsService
             HasGeminiApiKey = !string.IsNullOrWhiteSpace(settings.GeminiApiKey) || (settings.Provider == Core.Enums.AIProvider.Gemini && !string.IsNullOrWhiteSpace(settings.ApiKey)),
             HasOpenRouterApiKey = !string.IsNullOrWhiteSpace(settings.OpenRouterApiKey) || (settings.Provider == Core.Enums.AIProvider.OpenRouter && !string.IsNullOrWhiteSpace(settings.ApiKey)),
             HasGroqApiKey = !string.IsNullOrWhiteSpace(settings.GroqApiKey) || (settings.Provider == Core.Enums.AIProvider.Groq && !string.IsNullOrWhiteSpace(settings.ApiKey)),
+            HasCerebrasApiKey = !string.IsNullOrWhiteSpace(settings.CerebrasApiKey) || (settings.Provider == Core.Enums.AIProvider.Cerebras && !string.IsNullOrWhiteSpace(settings.ApiKey)),
             HasDeepSeekApiKey = !string.IsNullOrWhiteSpace(settings.DeepSeekApiKey) || (settings.Provider == Core.Enums.AIProvider.DeepSeek && !string.IsNullOrWhiteSpace(settings.ApiKey)),
             BaseUrl = settings.BaseUrl,
             CreatedAt = settings.CreatedAt,
@@ -284,6 +285,7 @@ Treat attached context documents as authoritative project knowledge. If the user
             Core.Enums.AIProvider.Gemini => FirstNonEmpty(settings.GeminiApiKey, settings.Provider == provider ? settings.ApiKey : null),
             Core.Enums.AIProvider.OpenRouter => FirstNonEmpty(settings.OpenRouterApiKey, settings.Provider == provider ? settings.ApiKey : null),
             Core.Enums.AIProvider.Groq => FirstNonEmpty(settings.GroqApiKey, settings.Provider == provider ? settings.ApiKey : null),
+            Core.Enums.AIProvider.Cerebras => FirstNonEmpty(settings.CerebrasApiKey, settings.Provider == provider ? settings.ApiKey : null),
             Core.Enums.AIProvider.DeepSeek => FirstNonEmpty(settings.DeepSeekApiKey, settings.Provider == provider ? settings.ApiKey : null),
             _ => settings.ApiKey
         };
@@ -301,6 +303,9 @@ Treat attached context documents as authoritative project knowledge. If the user
                 break;
             case Core.Enums.AIProvider.Groq:
                 settings.GroqApiKey = apiKey;
+                break;
+            case Core.Enums.AIProvider.Cerebras:
+                settings.CerebrasApiKey = apiKey;
                 break;
             case Core.Enums.AIProvider.DeepSeek:
                 settings.DeepSeekApiKey = apiKey;

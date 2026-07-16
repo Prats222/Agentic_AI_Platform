@@ -246,6 +246,11 @@ public sealed class AISettingsController : ControllerBase
                 StaticModel("Groq", "llama-3.3-70b-versatile", "Llama 3.3 70B Versatile"),
                 StaticModel("Groq", "qwen/qwen3-32b", "Qwen3 32B")
             },
+            "cerebras" => new[]
+            {
+                StaticModel("Cerebras", "gpt-oss-120b", "GPT OSS 120B (64K TPM)"),
+                StaticModel("Cerebras", "zai-glm-4.7", "Z.ai GLM 4.7 Preview")
+            },
             _ => Array.Empty<LLMModelDto>()
         };
 
