@@ -86,7 +86,7 @@ public sealed class AISettingsService : IAISettingsService
         return new LLMChatRequest
         {
             Provider = resolved.Provider,
-            Model = resolved.Model,
+            Model = NormalizeModel(resolved.Provider, resolved.Model),
             Temperature = resolved.Temperature,
             MaxTokens = resolved.MaxTokens,
             TopP = resolved.TopP,
@@ -113,7 +113,7 @@ public sealed class AISettingsService : IAISettingsService
         return new LLMChatRequest
         {
             Provider = request.Provider,
-            Model = request.Model.Trim(),
+            Model = NormalizeModel(request.Provider, request.Model.Trim()),
             Temperature = request.Temperature,
             MaxTokens = request.MaxTokens,
             TopP = request.TopP,
@@ -157,7 +157,7 @@ public sealed class AISettingsService : IAISettingsService
         {
             Id = settings.Id,
             Provider = settings.Provider,
-            Model = settings.Model,
+            Model = NormalizeModel(settings.Provider, settings.Model),
             Temperature = settings.Temperature,
             MaxTokens = settings.MaxTokens,
             TopP = settings.TopP,
@@ -178,7 +178,7 @@ public sealed class AISettingsService : IAISettingsService
         return new ResolvedAISettingsDto
         {
             Provider = settings.Provider,
-            Model = settings.Model,
+            Model = NormalizeModel(settings.Provider, settings.Model),
             Temperature = settings.Temperature,
             MaxTokens = settings.MaxTokens,
             TopP = settings.TopP,
@@ -199,7 +199,9 @@ public sealed class AISettingsService : IAISettingsService
         return new ResolvedAISettingsDto
         {
             Provider = agent.AIProvider ?? globalSettings.Provider,
-            Model = string.IsNullOrWhiteSpace(agent.AIModel) ? globalSettings.Model : agent.AIModel,
+            Model = NormalizeModel(
+                agent.AIProvider ?? globalSettings.Provider,
+                string.IsNullOrWhiteSpace(agent.AIModel) ? globalSettings.Model : agent.AIModel),
             Temperature = agent.AITemperature ?? globalSettings.Temperature,
             MaxTokens = agent.AIMaxTokens ?? globalSettings.MaxTokens,
             TopP = agent.AITopP ?? globalSettings.TopP,
@@ -312,5 +314,19 @@ Treat attached context documents as authoritative project knowledge. If the user
     private static string? FirstNonEmpty(params string?[] values)
     {
         return values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+    }
+
+    private static string NormalizeModel(Core.Enums.AIProvider provider, string model)
+    {
+        if (provider != Core.Enums.AIProvider.Gemini)
+        {
+            return model;
+        }
+
+        return model.ToLowerInvariant() switch
+        {
+            "gemini-2.5-flash" or "gemini-2.0-flash" or "gemini-2.0-flash-lite" => "gemini-3.1-flash-lite",
+            _ => model
+        };
     }
 }

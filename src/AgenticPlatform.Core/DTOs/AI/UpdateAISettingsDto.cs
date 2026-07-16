@@ -5,7 +5,7 @@ namespace AgenticPlatform.Core.DTOs.AI;
 public sealed class UpdateAISettingsDto
 {
     public AIProvider Provider { get; set; } = AIProvider.Gemini;
-    public string Model { get; set; } = "gemini-2.5-flash";
+    public string Model { get; set; } = "gemini-3.1-flash-lite";
     public double Temperature { get; set; } = 0.2;
     public int MaxTokens { get; set; } = 2048;
     public double TopP { get; set; } = 0.9;

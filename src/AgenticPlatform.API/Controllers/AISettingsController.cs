@@ -228,9 +228,8 @@ public sealed class AISettingsController : ControllerBase
         {
             "gemini" => new[]
             {
-                StaticModel("Gemini", "gemini-2.5-flash", "Gemini 2.5 Flash"),
-                StaticModel("Gemini", "gemini-2.0-flash-lite", "Gemini 2.0 Flash Lite"),
-                StaticModel("Gemini", "gemini-2.0-flash", "Gemini 2.0 Flash"),
+                StaticModel("Gemini", "gemini-3.1-flash-lite", "Gemini 3.1 Flash-Lite"),
+                StaticModel("Gemini", "gemini-3.5-flash", "Gemini 3.5 Flash"),
                 StaticModel("Gemini", "gemini-2.5-pro", "Gemini 2.5 Pro"),
             },
             "openrouter" => new[]
@@ -242,6 +241,7 @@ public sealed class AISettingsController : ControllerBase
             },
             "groq" => new[]
             {
+                StaticModel("Groq", "meta-llama/llama-4-scout-17b-16e-instruct", "Llama 4 Scout 17B (30K TPM)"),
                 StaticModel("Groq", "llama-3.1-8b-instant", "Llama 3.1 8B Instant"),
                 StaticModel("Groq", "llama-3.3-70b-versatile", "Llama 3.3 70B Versatile"),
                 StaticModel("Groq", "qwen/qwen3-32b", "Qwen3 32B")

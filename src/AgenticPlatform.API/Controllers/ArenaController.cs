@@ -24,6 +24,10 @@ namespace AgenticPlatform.API.Controllers;
 [Route("api/v{version:apiVersion}/arena")]
 public sealed class ArenaController : ControllerBase
 {
+    private const int ArenaEntryMaxTokens = 1200;
+    private const int ArenaJudgeMaxTokens = 700;
+    private const int ArenaJudgeEntryMaxCharacters = 2400;
+    private const string GroqArenaJudgeModel = "meta-llama/llama-4-scout-17b-16e-instruct";
     private readonly ApplicationDbContext _dbContext;
     private readonly IAISettingsService _aiSettingsService;
     private readonly ILLMProviderFactory _llmProviderFactory;
@@ -232,6 +236,8 @@ Return your best final answer. Follow the rules exactly.
         var request = await _aiSettingsService.BuildChatRequestAsync(entry.AgentId, prompt, cancellationToken)
             ?? throw new InvalidOperationException("Agent could not be loaded for arena battle.");
 
+        request.MaxTokens = Math.Min(request.MaxTokens, ArenaEntryMaxTokens);
+
         var provider = _llmProviderFactory.GetProvider(request.Provider);
         var stopwatch = Stopwatch.StartNew();
         var response = await provider.ChatAsync(request, cancellationToken);
@@ -264,7 +270,7 @@ EntryId: {entry.Id}
 Agent: {entry.AgentName}
 Creator: {entry.SubmittedByDisplayName}
 Output:
-{entry.Output}
+{TruncateForJudge(entry.Output)}
 """));
 
         var judgePrompt = $$"""
@@ -295,6 +301,17 @@ Return only JSON in this exact shape:
 """;
 
         var request = await _aiSettingsService.BuildChatRequestAsync(null, judgePrompt, cancellationToken);
+        request!.MaxTokens = Math.Min(request.MaxTokens, ArenaJudgeMaxTokens);
+        request.Temperature = Math.Min(request.Temperature, 0.2);
+
+        // Groq applies token limits per model. Arena entries may consume most of the
+        // 8B model's 6K TPM budget, so use its higher-throughput free Scout model to judge.
+        if (request.Provider == AIProvider.Groq)
+        {
+            request.Model = GroqArenaJudgeModel;
+            request.BaseUrl = "https://api.groq.com/openai/v1";
+        }
+
         var provider = _llmProviderFactory.GetProvider(request!.Provider);
         var response = await provider.ChatAsync(request, cancellationToken);
         var json = ExtractJson(response.Content);
@@ -323,6 +340,7 @@ Return only JSON in this exact shape:
 
     private static ArenaJudgeVerdict BuildFallbackVerdict(ArenaChallenge challenge, string judgeError)
     {
+        var safeError = SummarizeProviderError(judgeError);
         var scores = challenge.Entries
             .Select(entry =>
             {
@@ -331,7 +349,7 @@ Return only JSON in this exact shape:
                 {
                     EntryId = entry.Id,
                     Score = score,
-                    Feedback = $"Fallback judge used because the LLM judge was unavailable: {judgeError}. Heuristic score considers output length, code-like structure, rule following, and obvious formatting issues."
+                    Feedback = $"Fallback judge used because the LLM judge was unavailable ({safeError}). The score considers output completeness, code structure, rule following, and formatting."
                 };
             })
             .OrderByDescending(score => score.Score)
@@ -340,7 +358,7 @@ Return only JSON in this exact shape:
         return new ArenaJudgeVerdict
         {
             WinnerEntryId = scores.FirstOrDefault()?.EntryId ?? Guid.Empty,
-            Summary = $"LLM judge was unavailable, so PratsPilot used fallback scoring. Original judge error: {judgeError}",
+            Summary = $"The LLM judge was temporarily unavailable ({safeError}), so PratsPilot completed the battle using deterministic fallback scoring.",
             Scores = scores
         };
     }
@@ -402,6 +420,34 @@ Return only JSON in this exact shape:
             || value.Contains("this code", StringComparison.OrdinalIgnoreCase)
             || value.Contains("explanation", StringComparison.OrdinalIgnoreCase)
             || value.Contains("you can", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string TruncateForJudge(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "[No output]";
+        }
+
+        var normalized = value.Trim();
+        return normalized.Length <= ArenaJudgeEntryMaxCharacters
+            ? normalized
+            : $"{normalized[..ArenaJudgeEntryMaxCharacters]}\n[Output truncated for quota-efficient judging]";
+    }
+
+    private static string SummarizeProviderError(string value)
+    {
+        if (value.Contains("429", StringComparison.OrdinalIgnoreCase))
+        {
+            return "provider rate limit reached";
+        }
+
+        if (value.Contains("404", StringComparison.OrdinalIgnoreCase))
+        {
+            return "configured judge model unavailable";
+        }
+
+        return "provider request failed";
     }
 
     private Guid GetCurrentUserId()
