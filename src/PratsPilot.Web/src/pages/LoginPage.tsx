@@ -1,6 +1,8 @@
 import { Alert, Box, Button, Paper, Stack, Tab, Tabs, TextField, Typography } from '@mui/material'
 import LoginIcon from '@mui/icons-material/Login'
 import RocketLaunchIcon from '@mui/icons-material/RocketLaunch'
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
+import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Navigate } from 'react-router-dom'
@@ -10,7 +12,7 @@ import { useAuth } from '../state/AuthContext'
 
 export function LoginPage() {
   const { login, signUp, isAuthenticated } = useAuth()
-  const [mode, setMode] = useState<'admin' | 'user' | 'signup'>('admin')
+  const [mode, setMode] = useState<'admin' | 'user' | 'signup'>('user')
   const [displayName, setDisplayName] = useState('Platform Builder')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -58,28 +60,79 @@ export function LoginPage() {
     >
       <Paper
         sx={{
-          width: 'min(980px, 100%)',
-          minHeight: 560,
+          width: 'min(1120px, 100%)',
+          minHeight: 620,
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+          gridTemplateColumns: { xs: '1fr', md: '1.08fr 0.92fr' },
           overflow: 'hidden',
           background: 'linear-gradient(145deg, rgba(13,22,36,0.98), rgba(7,11,18,0.96))',
         }}
       >
-        <Box sx={{ p: { xs: 3, md: 5 }, display: 'flex', flexDirection: 'column' }}>
+        <Box sx={{ p: { xs: 3, md: 4 }, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <Logo />
-          <Box sx={{ my: 'auto', py: 5 }}>
-            <Typography variant="overline" color="primary.main" sx={{ fontWeight: 900 }}>
-              Agentic AI Platform
-            </Typography>
-            <Typography variant="h3" sx={{ mt: 1 }}>
-              Launch the pilot console.
-            </Typography>
-            <Typography color="text.secondary" sx={{ mt: 2, maxWidth: 420 }}>
-              Operate agents, tools, workflows, executions, and provider settings from one focused command surface.
+          <Box sx={{ py: { xs: 3, md: 3.5 } }}>
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'center', color: 'primary.main' }}>
+              <EmojiEventsIcon fontSize="small" />
+              <Typography variant="overline" sx={{ fontWeight: 900 }}>
+                Creator vs creator
+              </Typography>
+            </Stack>
+            <Typography variant="h4" sx={{ mt: 0.75, maxWidth: 540 }}>
+              Build your agent. Enter the arena. Let the judge decide.
             </Typography>
           </Box>
-          <Stack direction="row" spacing={1.2} sx={{ alignItems: 'center', color: 'secondary.main' }}>
+          <Box
+            sx={{
+              position: 'relative',
+              overflow: 'hidden',
+              borderRadius: 2,
+              border: '1px solid',
+              borderColor: 'divider',
+              bgcolor: '#070b12',
+              boxShadow: '0 18px 44px rgba(0,0,0,0.34)',
+            }}
+          >
+            <Box
+              component="video"
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="metadata"
+              poster="/media/arena-preview.jpg"
+              aria-label="PratsPilot Agent Battle Arena preview"
+              sx={{ width: '100%', aspectRatio: '16 / 9', objectFit: 'cover', display: 'block' }}
+            >
+              <source src="/media/arena-preview.mp4" type="video/mp4" />
+            </Box>
+            <Box
+              sx={{
+                position: 'absolute',
+                inset: 'auto 0 0',
+                p: 2,
+                pt: 5,
+                background: 'linear-gradient(transparent, rgba(4,7,13,0.96))',
+              }}
+            >
+              <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 900 }}>
+                    Production Bug-Fix Duel
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Two agents. One challenge. One winner.
+                  </Typography>
+                </Box>
+                <Stack direction="row" spacing={0.6} sx={{ alignItems: 'center', color: 'secondary.main' }}>
+                  <AutoAwesomeIcon fontSize="small" />
+                  <Typography variant="caption" sx={{ fontWeight: 900 }}>
+                    AI judged
+                  </Typography>
+                </Stack>
+              </Stack>
+            </Box>
+          </Box>
+          <Stack direction="row" spacing={1.2} sx={{ alignItems: 'center', color: 'secondary.main', mt: 'auto', pt: 3 }}>
             <RocketLaunchIcon />
             <Typography variant="body2" sx={{ fontWeight: 800 }}>
               Connected to ASP.NET Core + PostgreSQL
