@@ -145,6 +145,7 @@ builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IExecutionService, ExecutionService>();
 builder.Services.AddScoped<IAISettingsService, AISettingsService>();
 builder.Services.AddScoped<IChatService, ChatService>();
+builder.Services.AddScoped<IArtifactPublishingService, ArtifactPublishingService>();
 builder.Services.AddScoped<IWebSearchService, WebSearchService>();
 builder.Services.AddScoped<ILLMProvider, GeminiProvider>();
 builder.Services.AddScoped<ILLMProvider, OpenRouterProvider>();

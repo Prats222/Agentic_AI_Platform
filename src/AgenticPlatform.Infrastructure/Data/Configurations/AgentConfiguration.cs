@@ -32,6 +32,9 @@ public sealed class AgentConfiguration : IEntityTypeConfiguration<Agent>
         builder.Property(agent => agent.CreatedByDisplayName)
             .HasMaxLength(150);
 
+        builder.Property(agent => agent.PublishedByDisplayName)
+            .HasMaxLength(150);
+
         builder.Property(agent => agent.ProjectName)
             .HasMaxLength(150);
 
@@ -89,6 +92,8 @@ public sealed class AgentConfiguration : IEntityTypeConfiguration<Agent>
 
         builder.HasIndex(agent => new { agent.RealmId, agent.Name })
             .IsUnique();
+
+        builder.HasIndex(agent => new { agent.RealmId, agent.PublishedFromArtifactId });
 
         builder.HasMany(agent => agent.Tools)
             .WithMany(tool => tool.Agents)

@@ -35,4 +35,8 @@ public sealed class AgentDto
     public DateTimeOffset? UpdatedAt { get; set; }
     public Guid? CreatedByUserId { get; set; }
     public string? CreatedByDisplayName { get; set; }
+    public Guid? PublishedFromArtifactId { get; set; }
+    public DateTimeOffset? PublishedAt { get; set; }
+    public Guid? PublishedByUserId { get; set; }
+    public string? PublishedByDisplayName { get; set; }
 }

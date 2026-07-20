@@ -2,7 +2,7 @@ using AgenticPlatform.Core.Enums;
 
 namespace AgenticPlatform.Core.Entities;
 
-public sealed class Agent : BaseEntity
+public sealed class Agent : ArtifactEntity
 {
     public Guid RealmId { get; set; }
     public Realm? Realm { get; set; }

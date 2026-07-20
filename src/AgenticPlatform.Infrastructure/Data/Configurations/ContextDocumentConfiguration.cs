@@ -29,6 +29,9 @@ public sealed class ContextDocumentConfiguration : IEntityTypeConfiguration<Cont
         builder.Property(document => document.CreatedByDisplayName)
             .HasMaxLength(150);
 
+        builder.Property(document => document.PublishedByDisplayName)
+            .HasMaxLength(150);
+
         builder.Property(document => document.FileName)
             .HasMaxLength(260)
             .IsRequired();
@@ -47,5 +50,7 @@ public sealed class ContextDocumentConfiguration : IEntityTypeConfiguration<Cont
         builder.Property(document => document.StoragePath)
             .HasMaxLength(1000)
             .IsRequired();
+
+        builder.HasIndex(document => new { document.RealmId, document.PublishedFromArtifactId });
     }
 }

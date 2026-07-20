@@ -39,6 +39,23 @@ public static class ProductionSchemaUpgrader
 #pragma warning restore EF1002
         }
 
+        var artifactTables = new[] { "Agents", "Workflows", "Tools", "ContextDocuments" };
+        foreach (var table in artifactTables)
+        {
+#pragma warning disable EF1002
+            await dbContext.Database.ExecuteSqlRawAsync(
+                $"""
+                ALTER TABLE "{table}" ADD COLUMN IF NOT EXISTS "PublishedFromArtifactId" uuid NULL;
+                ALTER TABLE "{table}" ADD COLUMN IF NOT EXISTS "PublishedAt" timestamp with time zone NULL;
+                ALTER TABLE "{table}" ADD COLUMN IF NOT EXISTS "PublishedByUserId" uuid NULL;
+                ALTER TABLE "{table}" ADD COLUMN IF NOT EXISTS "PublishedByDisplayName" character varying(150) NULL;
+                CREATE INDEX IF NOT EXISTS "IX_{table}_RealmId_PublishedFromArtifactId"
+                    ON "{table}" ("RealmId", "PublishedFromArtifactId");
+                """,
+                cancellationToken);
+#pragma warning restore EF1002
+        }
+
         await dbContext.Database.ExecuteSqlRawAsync(
             """
             ALTER TABLE "Tools" ADD COLUMN IF NOT EXISTS "SecretJson" text NOT NULL DEFAULT '{{}}';

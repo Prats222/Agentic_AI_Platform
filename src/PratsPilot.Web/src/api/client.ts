@@ -1,6 +1,8 @@
 import axios from 'axios'
 import type {
   Agent,
+  ArtifactPublishResult,
+  ArtifactType,
   AISettings,
   ApiResponse,
   AuthResponse,
@@ -31,6 +33,8 @@ import type {
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'https://localhost:7167/api/v1'
 export const API_ORIGIN = API_BASE_URL.replace(/\/api\/v\d+\/?$/i, '')
+export const USER_REALM_ID = '11111111-1111-1111-1111-111111111111'
+export const ADMIN_REALM_ID = '22222222-2222-2222-2222-222222222222'
 const REALM_STORAGE_KEY = 'pratspilot.realmId'
 
 export const api = axios.create({
@@ -84,6 +88,8 @@ export const apiClient = {
   getAdminUsers: () => unwrap<UserAccess[]>(api.get('/admin/users', { params: noCacheParams() })),
   updateUserAccess: (id: string, isAdmin: boolean) =>
     unwrap<UserAccess>(api.put(`/admin/users/${id}/access`, { isAdmin })),
+  publishArtifact: (artifactType: ArtifactType, id: string) =>
+    unwrap<ArtifactPublishResult>(api.post(`/admin/artifacts/${artifactType}/${id}/publish`)),
   getArenaChallenges: () => unwrap<ArenaChallenge[]>(api.get('/arena/challenges', { params: noCacheParams() })),
   createArenaChallenge: (request: CreateArenaChallengeRequest) =>
     unwrap<ArenaChallenge>(api.post('/arena/challenges', request)),

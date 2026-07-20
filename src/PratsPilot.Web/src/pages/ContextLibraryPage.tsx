@@ -6,10 +6,14 @@ import { useState } from 'react'
 import { apiClient } from '../api/client'
 import type { ContextDocument } from '../api/types'
 import { DataPanel } from '../components/DataPanel'
+import { AdminVerifiedChip } from '../components/AdminVerifiedChip'
+import { PublishArtifactButton } from '../components/PublishArtifactButton'
 import { SectionHeader } from '../components/SectionHeader'
+import { useAuth } from '../state/AuthContext'
 
 export function ContextLibraryPage() {
   const queryClient = useQueryClient()
+  const { user } = useAuth()
   const documents = useQuery({ queryKey: ['contextDocuments'], queryFn: apiClient.getContextDocuments })
   const [name, setName] = useState('')
   const [file, setFile] = useState<File | undefined>()
@@ -30,6 +34,10 @@ export function ContextLibraryPage() {
       queryClient.invalidateQueries({ queryKey: ['contextDocuments'] })
     },
   })
+
+  const canModify = (document: ContextDocument) => Boolean(
+    user?.roles.includes('Admin') || !document.createdByUserId || document.createdByUserId === user?.userId,
+  )
 
   return (
     <Box>
@@ -108,7 +116,10 @@ export function ContextLibraryPage() {
             label: 'Document',
             render: (row) => (
               <Box>
-                <Typography sx={{ fontWeight: 900 }}>{row.name}</Typography>
+                <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <Typography sx={{ fontWeight: 900 }}>{row.name}</Typography>
+                  <AdminVerifiedChip publishedAt={row.publishedAt} publishedByDisplayName={row.publishedByDisplayName} />
+                </Stack>
                 <Typography variant="caption" color="text.secondary">
                   {row.fileName}
                 </Typography>
@@ -121,15 +132,20 @@ export function ContextLibraryPage() {
             key: 'actions',
             label: 'Actions',
             render: (row) => (
-              <Button
-                size="small"
-                color="error"
-                variant="outlined"
-                startIcon={<DeleteIcon />}
-                onClick={() => window.confirm(`Delete context document "${row.name}"?`) && remove.mutate(row.id)}
-              >
-                Delete
-              </Button>
+              <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap' }}>
+                <PublishArtifactButton artifactType="context-document" artifactId={row.id} artifactName={row.name} realmId={row.realmId} />
+                {canModify(row) ? (
+                  <Button
+                    size="small"
+                    color="error"
+                    variant="outlined"
+                    startIcon={<DeleteIcon />}
+                    onClick={() => window.confirm(`Delete context document "${row.name}"?`) && remove.mutate(row.id)}
+                  >
+                    Delete
+                  </Button>
+                ) : <Chip size="small" label="View only" />}
+              </Stack>
             ),
           },
         ]}

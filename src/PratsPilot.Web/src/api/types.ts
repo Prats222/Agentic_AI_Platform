@@ -53,6 +53,10 @@ export type Agent = {
   createdAt: string
   createdByUserId?: string
   createdByDisplayName?: string
+  publishedFromArtifactId?: string
+  publishedAt?: string
+  publishedByUserId?: string
+  publishedByDisplayName?: string
 }
 
 export type CreateAgentRequest = {
@@ -94,6 +98,10 @@ export type Tool = {
   createdAt: string
   createdByUserId?: string
   createdByDisplayName?: string
+  publishedFromArtifactId?: string
+  publishedAt?: string
+  publishedByUserId?: string
+  publishedByDisplayName?: string
 }
 
 export type CreateToolRequest = {
@@ -126,6 +134,10 @@ export type Workflow = {
   createdAt: string
   createdByUserId?: string
   createdByDisplayName?: string
+  publishedFromArtifactId?: string
+  publishedAt?: string
+  publishedByUserId?: string
+  publishedByDisplayName?: string
   steps: WorkflowStep[]
 }
 
@@ -269,6 +281,24 @@ export type ContextDocument = {
   fileExtension: string
   sizeBytes: number
   createdAt: string
+  createdByUserId?: string
+  createdByDisplayName?: string
+  publishedFromArtifactId?: string
+  publishedAt?: string
+  publishedByUserId?: string
+  publishedByDisplayName?: string
+}
+
+export type ArtifactType = 'agent' | 'workflow' | 'tool' | 'context-document'
+
+export type ArtifactPublishResult = {
+  artifactType: string
+  sourceArtifactId: string
+  publishedArtifactId: string
+  name: string
+  wasCreated: boolean
+  publishedDependencyCount: number
+  publishedAt: string
 }
 
 export type HumanApprovalRequest = {

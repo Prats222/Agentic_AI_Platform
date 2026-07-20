@@ -2,7 +2,7 @@ using AgenticPlatform.Core.Enums;
 
 namespace AgenticPlatform.Core.Entities;
 
-public sealed class Workflow : BaseEntity
+public sealed class Workflow : ArtifactEntity
 {
     public Guid RealmId { get; set; }
     public Realm? Realm { get; set; }

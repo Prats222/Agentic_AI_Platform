@@ -1,6 +1,6 @@
 namespace AgenticPlatform.Core.Entities;
 
-public sealed class Tool : BaseEntity
+public sealed class Tool : ArtifactEntity
 {
     public Guid RealmId { get; set; }
     public Realm? Realm { get; set; }

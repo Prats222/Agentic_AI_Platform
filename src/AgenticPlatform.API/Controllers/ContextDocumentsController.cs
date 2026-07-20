@@ -57,7 +57,13 @@ public sealed class ContextDocumentsController : ControllerBase
                 ContentType = document.ContentType,
                 FileExtension = document.FileExtension,
                 SizeBytes = document.SizeBytes,
-                CreatedAt = document.CreatedAt
+                CreatedAt = document.CreatedAt,
+                CreatedByUserId = document.CreatedByUserId,
+                CreatedByDisplayName = document.CreatedByDisplayName,
+                PublishedFromArtifactId = document.PublishedFromArtifactId,
+                PublishedAt = document.PublishedAt,
+                PublishedByUserId = document.PublishedByUserId,
+                PublishedByDisplayName = document.PublishedByDisplayName
             })
             .ToListAsync(cancellationToken);
 
@@ -126,7 +132,13 @@ public sealed class ContextDocumentsController : ControllerBase
             ContentType = document.ContentType,
             FileExtension = document.FileExtension,
             SizeBytes = document.SizeBytes,
-            CreatedAt = document.CreatedAt
+            CreatedAt = document.CreatedAt,
+            CreatedByUserId = document.CreatedByUserId,
+            CreatedByDisplayName = document.CreatedByDisplayName,
+            PublishedFromArtifactId = document.PublishedFromArtifactId,
+            PublishedAt = document.PublishedAt,
+            PublishedByUserId = document.PublishedByUserId,
+            PublishedByDisplayName = document.PublishedByDisplayName
         };
 
         return CreatedAtAction(nameof(GetDocuments), ApiResponse<ContextDocumentDto>.Ok(dto, "Context document uploaded successfully."));

@@ -32,6 +32,9 @@ public sealed class WorkflowConfiguration : IEntityTypeConfiguration<Workflow>
         builder.Property(workflow => workflow.CreatedByDisplayName)
             .HasMaxLength(150);
 
+        builder.Property(workflow => workflow.PublishedByDisplayName)
+            .HasMaxLength(150);
+
         builder.Property(workflow => workflow.Status)
             .HasConversion<string>()
             .HasMaxLength(50)
@@ -39,6 +42,8 @@ public sealed class WorkflowConfiguration : IEntityTypeConfiguration<Workflow>
 
         builder.HasIndex(workflow => new { workflow.RealmId, workflow.Name })
             .IsUnique();
+
+        builder.HasIndex(workflow => new { workflow.RealmId, workflow.PublishedFromArtifactId });
 
         builder.HasMany(workflow => workflow.Steps)
             .WithOne(step => step.Workflow)

@@ -47,7 +47,12 @@ public sealed class ToolConfiguration : IEntityTypeConfiguration<Tool>
         builder.Property(tool => tool.CreatedByDisplayName)
             .HasMaxLength(150);
 
+        builder.Property(tool => tool.PublishedByDisplayName)
+            .HasMaxLength(150);
+
         builder.HasIndex(tool => new { tool.RealmId, tool.Name })
             .IsUnique();
+
+        builder.HasIndex(tool => new { tool.RealmId, tool.PublishedFromArtifactId });
     }
 }

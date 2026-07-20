@@ -8,6 +8,8 @@ import type { DragEvent } from 'react'
 import { apiClient } from '../api/client'
 import type { Workflow } from '../api/types'
 import { DataPanel } from '../components/DataPanel'
+import { AdminVerifiedChip } from '../components/AdminVerifiedChip'
+import { PublishArtifactButton } from '../components/PublishArtifactButton'
 import { SectionHeader } from '../components/SectionHeader'
 import { useAuth } from '../state/AuthContext'
 
@@ -251,7 +253,10 @@ export function WorkflowsPage() {
             label: 'Workflow',
             render: (row) => (
               <Box>
-                <Typography sx={{ fontWeight: 900 }}>{row.name}</Typography>
+                <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <Typography sx={{ fontWeight: 900 }}>{row.name}</Typography>
+                  <AdminVerifiedChip publishedAt={row.publishedAt} publishedByDisplayName={row.publishedByDisplayName} />
+                </Stack>
                 <Typography variant="caption" color="text.secondary">
                   {row.description || 'No description'}
                 </Typography>
@@ -275,6 +280,7 @@ export function WorkflowsPage() {
             label: 'Actions',
             render: (row) => (
               <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap' }}>
+                <PublishArtifactButton artifactType="workflow" artifactId={row.id} artifactName={row.name} realmId={row.realmId} />
                 {canModify(row) ? (
                   <>
                     <Button size="small" variant="outlined" startIcon={<EditIcon />} onClick={() => editWorkflow(row)}>

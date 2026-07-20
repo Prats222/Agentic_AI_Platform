@@ -1,6 +1,6 @@
 namespace AgenticPlatform.Core.Entities;
 
-public sealed class ContextDocument : BaseEntity
+public sealed class ContextDocument : ArtifactEntity
 {
     public Guid RealmId { get; set; }
     public Realm? Realm { get; set; }
