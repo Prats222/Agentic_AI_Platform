@@ -43,7 +43,7 @@ public sealed class ToolConfiguration : IEntityTypeConfiguration<Tool>
             .IsRequired();
 
         builder.Property(tool => tool.EndpointUrl)
-            .HasMaxLength(2048)
+            .HasMaxLength(65535)
             .IsRequired();
 
         builder.Property(tool => tool.SecretJson)

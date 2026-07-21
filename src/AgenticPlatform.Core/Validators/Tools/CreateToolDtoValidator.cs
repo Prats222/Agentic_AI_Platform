@@ -31,9 +31,17 @@ public sealed class CreateToolDtoValidator : AbstractValidator<CreateToolDto>
 
         RuleFor(request => request.EndpointUrl)
             .NotEmpty()
-            .MaximumLength(2048)
+            .Must((request, endpointUrl) => endpointUrl.Length <= GetMaximumEndpointLength(request.Category))
+            .WithMessage(request => request.Category.Equals(BuiltInToolCategories.PythonScript, StringComparison.OrdinalIgnoreCase)
+                ? "Python scripts must be 65535 characters or fewer."
+                : "EndpointUrl must be 2048 characters or fewer.")
             .Must((request, endpointUrl) => BeValidEndpoint(request.Category, endpointUrl))
             .WithMessage("EndpointUrl must be a valid absolute HTTP/HTTPS URL, or a builtin:// URL for built-in tools.");
+    }
+
+    private static int GetMaximumEndpointLength(string category)
+    {
+        return category.Equals(BuiltInToolCategories.PythonScript, StringComparison.OrdinalIgnoreCase) ? 65535 : 2048;
     }
 
     private static bool BeValidEndpoint(string category, string value)

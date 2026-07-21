@@ -60,6 +60,7 @@ public static class ProductionSchemaUpgrader
         await dbContext.Database.ExecuteSqlRawAsync(
             """
             ALTER TABLE "Agents" ALTER COLUMN "Description" TYPE character varying(8000);
+            ALTER TABLE "Tools" ALTER COLUMN "EndpointUrl" TYPE character varying(65535);
             ALTER TABLE "Tools" ADD COLUMN IF NOT EXISTS "SecretJson" text NOT NULL DEFAULT '{{}}';
             ALTER TABLE "AISettings" ADD COLUMN IF NOT EXISTS "CerebrasApiKey" character varying(4000) NULL;
 
