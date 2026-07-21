@@ -49,6 +49,7 @@ public static class ProductionSchemaUpgrader
                 ALTER TABLE "{table}" ADD COLUMN IF NOT EXISTS "PublishedAt" timestamp with time zone NULL;
                 ALTER TABLE "{table}" ADD COLUMN IF NOT EXISTS "PublishedByUserId" uuid NULL;
                 ALTER TABLE "{table}" ADD COLUMN IF NOT EXISTS "PublishedByDisplayName" character varying(150) NULL;
+                ALTER TABLE "{table}" ADD COLUMN IF NOT EXISTS "Visibility" character varying(20) NOT NULL DEFAULT 'Realm';
                 CREATE INDEX IF NOT EXISTS "IX_{table}_RealmId_PublishedFromArtifactId"
                     ON "{table}" ("RealmId", "PublishedFromArtifactId");
                 """,
@@ -58,6 +59,7 @@ public static class ProductionSchemaUpgrader
 
         await dbContext.Database.ExecuteSqlRawAsync(
             """
+            ALTER TABLE "Agents" ALTER COLUMN "Description" TYPE character varying(8000);
             ALTER TABLE "Tools" ADD COLUMN IF NOT EXISTS "SecretJson" text NOT NULL DEFAULT '{{}}';
             ALTER TABLE "AISettings" ADD COLUMN IF NOT EXISTS "CerebrasApiKey" character varying(4000) NULL;
 

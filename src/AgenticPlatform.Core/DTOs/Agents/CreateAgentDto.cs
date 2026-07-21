@@ -24,5 +24,6 @@ public sealed class CreateAgentDto
     public string? AISystemPrompt { get; set; }
     public string? AIApiKey { get; set; }
     public string? AIBaseUrl { get; set; }
+    public ArtifactVisibility Visibility { get; set; } = ArtifactVisibility.Realm;
     public AgentStatus Status { get; set; } = AgentStatus.Draft;
 }

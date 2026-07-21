@@ -195,6 +195,9 @@ export function LoginPage() {
           <Button type="submit" size="large" variant="contained" startIcon={<LoginIcon />} disabled={loading}>
             {loading ? 'Working...' : mode === 'signup' ? 'Create and enter' : 'Enter PratsPilot'}
           </Button>
+          <Alert severity="warning" variant="outlined">
+            Free hosting may take about 30 seconds to wake after inactivity. If the first sign-in attempt fails, wait briefly and try again.
+          </Alert>
           {mode === 'admin' && (
             <Alert severity="info">
               Use your configured administrator account. Admin users can access both User Realm and Admin Realm.

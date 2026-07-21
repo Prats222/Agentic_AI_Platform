@@ -10,6 +10,7 @@ public sealed class WorkflowDto
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
     public WorkflowStatus Status { get; set; }
+    public ArtifactVisibility Visibility { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? UpdatedAt { get; set; }
     public Guid? CreatedByUserId { get; set; }

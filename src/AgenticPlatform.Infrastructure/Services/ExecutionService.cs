@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using AgenticPlatform.Core.Constants;
 using AgenticPlatform.Core.Entities;
 using AgenticPlatform.Core.Enums;
@@ -487,33 +488,95 @@ public sealed class ExecutionService : IExecutionService
         {
             throw new InvalidOperationException("Agent target was not found.");
         }
-        chatRequest.Messages = chatRequest.Messages
+        var messages = chatRequest.Messages
             .Select((message, index) => index == chatRequest.Messages.Count - 1
                 ? new LLMChatMessage { Role = message.Role, Content = enrichedPrompt }
                 : message)
-            .ToArray();
+            .ToList();
+        chatRequest.Messages = messages;
 
         AddLog(executionId, ExecutionLogLevel.Information, $"Calling {chatRequest.Provider} model '{chatRequest.Model}'.");
 
         var provider = _llmProviderFactory.GetProvider(chatRequest.Provider);
-        var response = await provider.ChatAsync(chatRequest, cancellationToken);
+        var totalInputTokens = 0;
+        var totalOutputTokens = 0;
+        string? finalContent = null;
+
+        for (var round = 0; round < 4; round++)
+        {
+            totalInputTokens += EstimateTokens(string.Join("\n", messages.Select(message => message.Content)));
+            var response = await provider.ChatAsync(chatRequest, cancellationToken);
+            totalOutputTokens += EstimateTokens(response.Content);
+
+            if (!TryParseToolCall(response.Content, agent.Tools, out var toolCall))
+            {
+                finalContent = response.Content;
+                break;
+            }
+
+            if (round == 3)
+            {
+                throw new InvalidOperationException("The agent exceeded the maximum of three tool calls without producing a final answer.");
+            }
+
+            var tool = agent.Tools.FirstOrDefault(item => item.IsEnabled && ToolMatches(item, toolCall.ToolReference));
+            if (tool is null)
+            {
+                throw new InvalidOperationException($"The model requested an unavailable tool: {toolCall.ToolReference}.");
+            }
+
+            AddLog(executionId, ExecutionLogLevel.Information, $"Agent requested attached tool '{tool.Name}'.", toolCall.ArgumentsJson);
+            var toolResult = await _toolExecutionService.ExecuteAsync(tool.Id, toolCall.ArgumentsJson, cancellationToken);
+            if (toolResult is null || !toolResult.Succeeded || string.IsNullOrWhiteSpace(toolResult.ResultJson))
+            {
+                var error = toolResult?.ErrorMessage ?? "The tool returned no result.";
+                AddLog(executionId, ExecutionLogLevel.Error, $"Attached tool '{tool.Name}' failed.", JsonSerializer.Serialize(new { error }));
+                throw new InvalidOperationException($"Attached tool '{tool.Name}' failed: {error}");
+            }
+
+            if (TryReadToolFailure(toolResult.ResultJson, out var toolError))
+            {
+                AddLog(executionId, ExecutionLogLevel.Error, $"Attached tool '{tool.Name}' returned an error.", toolResult.ResultJson);
+                throw new InvalidOperationException($"Attached tool '{tool.Name}' failed: {toolError}");
+            }
+
+            AddLog(executionId, ExecutionLogLevel.Information, $"Attached tool '{tool.Name}' executed successfully.", toolResult.ResultJson);
+            messages.Add(new LLMChatMessage { Role = "assistant", Content = response.Content });
+            messages.Add(new LLMChatMessage
+            {
+                Role = "user",
+                Content = $"""
+                VERIFIED TOOL RESULT from {tool.Name}:
+                {Truncate(toolResult.ResultJson, 16000)}
+
+                The tool was executed by PratsPilot. Use this verified result to complete the original request. If another tool is essential, return only the tool-call JSON protocol. Otherwise return the final user-facing answer and do not repeat tool-call JSON.
+                """
+            });
+            chatRequest.Messages = messages;
+        }
+
+        if (string.IsNullOrWhiteSpace(finalContent))
+        {
+            throw new InvalidOperationException("The agent did not produce a final answer after tool execution.");
+        }
+
         var execution = await _dbContext.Executions.FirstOrDefaultAsync(item => item.Id == executionId, cancellationToken);
         if (execution is not null)
         {
             execution.Provider = chatRequest.Provider.ToString();
             execution.Model = chatRequest.Model;
-            execution.EstimatedInputTokens = EstimateTokens(enrichedPrompt);
-            execution.EstimatedOutputTokens = EstimateTokens(response.Content);
+            execution.EstimatedInputTokens = totalInputTokens;
+            execution.EstimatedOutputTokens = totalOutputTokens;
         }
 
         AddLog(executionId, ExecutionLogLevel.Information, "LLM response received.", JsonSerializer.Serialize(new
         {
             chatRequest.Provider,
             chatRequest.Model,
-            responseLength = response.Content.Length
+            responseLength = finalContent.Length
         }));
 
-        return new AgentRunResult(chatRequest.Provider, chatRequest.Model, response.Content);
+        return new AgentRunResult(chatRequest.Provider, chatRequest.Model, finalContent);
     }
 
     private async Task<string?> TryBuildWebSearchContextAsync(Agent agent, string prompt, Guid executionId, CancellationToken cancellationToken)
@@ -649,7 +712,9 @@ public sealed class ExecutionService : IExecutionService
             {
                 error = root.TryGetProperty("message", out var message) && message.ValueKind == JsonValueKind.String
                     ? message.GetString() ?? "The tool reported an error."
-                    : "The tool reported an error.";
+                    : root.TryGetProperty("error", out var errorValue) && errorValue.ValueKind == JsonValueKind.String
+                        ? errorValue.GetString() ?? "The tool reported an error."
+                        : "The tool reported an error.";
                 return true;
             }
         }
@@ -713,11 +778,15 @@ public sealed class ExecutionService : IExecutionService
 
         if (agent.Tools.Count > 0)
         {
+            const string toolCallProtocol = "{\"toolCall\":{\"toolId\":\"the tool ID above\",\"arguments\":{\"schema_field\":\"value\"}}}";
             sections.Add($"""
             Available tools attached to this agent:
-            {string.Join("\n", agent.Tools.Select(tool => $"- {tool.Name} ({tool.Category}): {tool.Description}"))}
+            {string.Join("\n\n", agent.Tools.Where(tool => tool.IsEnabled).Select(tool => $"- Tool ID: {tool.Id}\n  Name: {tool.Name}\n  Category: {tool.Category}\n  Description: {tool.Description}\n  Input schema: {tool.InputSchemaJson}"))}
 
-            Tool execution is handled by the platform runtime. If tool results are provided above, use them directly instead of saying you cannot access the web.
+            To execute a tool, return ONLY valid JSON in this exact format, with no markdown or explanation:
+            {toolCallProtocol}
+
+            PratsPilot will execute it securely and send the verified result back to you. Never merely describe a tool call, print a Python-style function call, or claim a tool succeeded before receiving its verified result. If tool results are already provided above, use them directly.
             """);
         }
 
@@ -727,6 +796,113 @@ public sealed class ExecutionService : IExecutionService
     private static string Truncate(string value, int maxLength)
     {
         return value.Length <= maxLength ? value : value[..maxLength] + "\n...[truncated]";
+    }
+
+    private static bool TryParseToolCall(string content, IEnumerable<Tool> tools, out RequestedToolCall toolCall)
+    {
+        var candidate = content.Trim();
+        if (candidate.StartsWith("```", StringComparison.Ordinal))
+        {
+            candidate = Regex.Replace(candidate, "^```(?:json)?\\s*|\\s*```$", string.Empty, RegexOptions.IgnoreCase).Trim();
+        }
+
+        var jsonStart = candidate.IndexOf('{');
+        var jsonEnd = candidate.LastIndexOf('}');
+        if (jsonStart >= 0 && jsonEnd > jsonStart)
+        {
+            candidate = candidate[jsonStart..(jsonEnd + 1)];
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(candidate);
+            var root = document.RootElement;
+            var call = root.TryGetProperty("toolCall", out var nestedCall) ? nestedCall : root;
+            var reference = call.TryGetProperty("toolId", out var toolId) && toolId.ValueKind == JsonValueKind.String
+                ? toolId.GetString()
+                : call.TryGetProperty("toolName", out var toolName) && toolName.ValueKind == JsonValueKind.String
+                    ? toolName.GetString()
+                    : call.TryGetProperty("tool", out var tool) && tool.ValueKind == JsonValueKind.String
+                        ? tool.GetString()
+                        : null;
+
+            if (!string.IsNullOrWhiteSpace(reference)
+                && call.TryGetProperty("arguments", out var arguments)
+                && arguments.ValueKind == JsonValueKind.Object)
+            {
+                toolCall = new RequestedToolCall(reference, arguments.GetRawText());
+                return true;
+            }
+        }
+        catch (JsonException)
+        {
+            // Some providers emit Python-style function calls; handle that compatibility form below.
+        }
+
+        foreach (var tool in tools.Where(item => item.IsEnabled))
+        {
+            var match = Regex.Match(
+                content,
+                $@"(?is)\b{BuildFlexibleToolNamePattern(tool.Name)}\s*\((?<arguments>.*)\)\s*$");
+            if (!match.Success)
+            {
+                continue;
+            }
+
+            var values = new Dictionary<string, object?>();
+            foreach (Match argument in Regex.Matches(match.Groups["arguments"].Value, "(?is)(?<name>[A-Za-z_][A-Za-z0-9_]*)\\s*=\\s*(?<value>\"(?:\\\\.|[^\"])*\"|'(?:\\\\.|[^'])*'|true|false|null|-?[0-9]+(?:\\.[0-9]+)?)\\s*(?:,|$)"))
+            {
+                var raw = argument.Groups["value"].Value;
+                values[argument.Groups["name"].Value] = ParseFunctionArgument(raw);
+            }
+
+            if (values.Count > 0)
+            {
+                toolCall = new RequestedToolCall(tool.Id.ToString(), JsonSerializer.Serialize(values));
+                return true;
+            }
+        }
+
+        toolCall = default!;
+        return false;
+    }
+
+    private static object? ParseFunctionArgument(string raw)
+    {
+        if (raw.StartsWith('"'))
+        {
+            return JsonSerializer.Deserialize<string>(raw);
+        }
+        if (raw.StartsWith('\''))
+        {
+            return Regex.Unescape(raw[1..^1]);
+        }
+        if (bool.TryParse(raw, out var boolean))
+        {
+            return boolean;
+        }
+        if (raw.Equals("null", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+        return double.TryParse(raw, System.Globalization.CultureInfo.InvariantCulture, out var number) ? number : raw;
+    }
+
+    private static string BuildFlexibleToolNamePattern(string name)
+    {
+        return string.Join("[\\s_-]*", Regex.Matches(name, "[A-Za-z0-9]+").Select(match => Regex.Escape(match.Value)));
+    }
+
+    private static string NormalizeToolName(string value)
+    {
+        return Regex.Replace(value, "[^A-Za-z0-9]", string.Empty);
+    }
+
+    private static bool ToolMatches(Tool tool, string reference)
+    {
+        return Guid.TryParse(reference, out var id)
+            ? tool.Id == id
+            : NormalizeToolName(tool.Name).Equals(NormalizeToolName(reference), StringComparison.OrdinalIgnoreCase);
     }
 
     private void AddLog(Guid executionId, ExecutionLogLevel level, string message, string? detailsJson = null)
@@ -805,6 +981,8 @@ public sealed class ExecutionService : IExecutionService
     private sealed record AgentRunResult(AIProvider Provider, string Model, string Content);
 
     private sealed record AttachedToolContext(string ToolName, string ResultJson);
+
+    private sealed record RequestedToolCall(string ToolReference, string ArgumentsJson);
 
     private sealed record WorkflowStepRuntimeOutput(
         Guid StepId,

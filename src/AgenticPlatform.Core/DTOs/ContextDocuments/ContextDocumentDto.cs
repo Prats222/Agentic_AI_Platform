@@ -1,3 +1,5 @@
+using AgenticPlatform.Core.Enums;
+
 namespace AgenticPlatform.Core.DTOs.ContextDocuments;
 
 public sealed class ContextDocumentDto
@@ -9,6 +11,7 @@ public sealed class ContextDocumentDto
     public string ContentType { get; set; } = string.Empty;
     public string FileExtension { get; set; } = string.Empty;
     public long SizeBytes { get; set; }
+    public ArtifactVisibility Visibility { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public Guid? CreatedByUserId { get; set; }
     public string? CreatedByDisplayName { get; set; }

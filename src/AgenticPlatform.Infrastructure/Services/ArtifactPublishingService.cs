@@ -344,6 +344,7 @@ public sealed class ArtifactPublishingService : IArtifactPublishingService
         PublicationSession session,
         bool wasCreated)
     {
+        target.Visibility = ArtifactVisibility.Realm;
         target.PublishedFromArtifactId = sourceId;
         target.PublishedAt = session.PublishedAt;
         target.PublishedByUserId = session.PublishedByUserId;

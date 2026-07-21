@@ -11,6 +11,7 @@ import { apiClient } from '../api/client'
 import type { Tool } from '../api/types'
 import { DataPanel } from '../components/DataPanel'
 import { AdminVerifiedChip } from '../components/AdminVerifiedChip'
+import { ArtifactVisibilityChip, ArtifactVisibilityField } from '../components/ArtifactVisibilityField'
 import { PublishArtifactButton } from '../components/PublishArtifactButton'
 import { SectionHeader } from '../components/SectionHeader'
 import { useAuth } from '../state/AuthContext'
@@ -72,6 +73,7 @@ export function ToolsPage() {
       endpointUrl: tool.endpointUrl,
       secretJson: '',
       isEnabled: tool.isEnabled,
+      visibility: tool.visibility,
     })
     formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
@@ -133,6 +135,10 @@ export function ToolsPage() {
                 : 'Stored server-side and injected as data["secrets"] during execution. Example: {"githubToken":"..."}'}
               sx={{ gridColumn: { lg: '1 / -1' }, ...resizableTextAreaSx, '& textarea': { fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 13 } }}
             />
+            <ArtifactVisibilityField
+              value={form.visibility}
+              onChange={(visibility) => setForm({ ...form, visibility })}
+            />
             <Button
               variant="contained"
               startIcon={editingToolId ? <SaveIcon /> : <AddIcon />}
@@ -164,6 +170,7 @@ export function ToolsPage() {
                   <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
                     <Typography sx={{ fontWeight: 900 }}>{row.name}</Typography>
                     <AdminVerifiedChip publishedAt={row.publishedAt} publishedByDisplayName={row.publishedByDisplayName} />
+                    <ArtifactVisibilityChip visibility={row.visibility} />
                   </Stack>
                   <Typography variant="caption" color="text.secondary">
                     {row.description || 'No description'}
@@ -267,6 +274,7 @@ function emptyToolForm() {
     endpointUrl: pythonTemplate,
     secretJson: '{}',
     isEnabled: true,
+    visibility: 'Private' as 'Private' | 'Realm',
   }
 }
 

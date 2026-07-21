@@ -29,6 +29,12 @@ public sealed class ToolConfiguration : IEntityTypeConfiguration<Tool>
         builder.Property(tool => tool.Description)
             .HasMaxLength(1000);
 
+        builder.Property(tool => tool.Visibility)
+            .HasConversion<string>()
+            .HasMaxLength(20)
+            .HasDefaultValue(AgenticPlatform.Core.Enums.ArtifactVisibility.Realm)
+            .IsRequired();
+
         builder.Property(tool => tool.Category)
             .HasMaxLength(100)
             .IsRequired();

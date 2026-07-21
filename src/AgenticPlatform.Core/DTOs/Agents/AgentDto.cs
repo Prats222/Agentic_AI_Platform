@@ -27,6 +27,7 @@ public sealed class AgentDto
     public bool HasAIApiKey { get; set; }
     public string? AIBaseUrl { get; set; }
     public AgentStatus Status { get; set; }
+    public ArtifactVisibility Visibility { get; set; }
     public IReadOnlyCollection<Guid> ToolIds { get; set; } = Array.Empty<Guid>();
     public IReadOnlyCollection<string> ToolNames { get; set; } = Array.Empty<string>();
     public IReadOnlyCollection<Guid> ContextDocumentIds { get; set; } = Array.Empty<Guid>();

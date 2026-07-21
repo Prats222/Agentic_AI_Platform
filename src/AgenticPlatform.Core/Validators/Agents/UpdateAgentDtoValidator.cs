@@ -12,7 +12,7 @@ public sealed class UpdateAgentDtoValidator : AbstractValidator<UpdateAgentDto>
             .MaximumLength(150);
 
         RuleFor(request => request.Description)
-            .MaximumLength(1000);
+            .MaximumLength(8000);
 
         RuleFor(request => request.ProjectName)
             .MaximumLength(150);

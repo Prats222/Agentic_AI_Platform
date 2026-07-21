@@ -33,7 +33,7 @@ public sealed class WorkflowsController : ControllerBase
     }
 
     [HttpGet]
-    [ResponseCache(Duration = 30, Location = ResponseCacheLocation.Any, VaryByQueryKeys = ["*"], VaryByHeader = RealmAccess.HeaderName)]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     [ProducesResponseType(typeof(ApiResponse<PagedResult<WorkflowDto>>), StatusCodes.Status200OK)]
     public async Task<ActionResult<ApiResponse<PagedResult<WorkflowDto>>>> GetWorkflows(
         [FromQuery] WorkflowQueryParameters queryParameters,
@@ -45,7 +45,10 @@ public sealed class WorkflowsController : ControllerBase
             return Forbid();
         }
 
-        var query = _unitOfWork.Workflows.Query().AsNoTracking().InRealm(realmId);
+        var query = _unitOfWork.Workflows.Query()
+            .AsNoTracking()
+            .InRealm(realmId)
+            .VisibleTo(User.GetUserId(), User.IsAdmin());
 
         if (!string.IsNullOrWhiteSpace(queryParameters.Name))
         {
@@ -76,7 +79,7 @@ public sealed class WorkflowsController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
-    [ResponseCache(Duration = 30, Location = ResponseCacheLocation.Any, VaryByHeader = RealmAccess.HeaderName)]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     [ProducesResponseType(typeof(ApiResponse<WorkflowDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<WorkflowDto>), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ApiResponse<WorkflowDto>>> GetWorkflow(Guid id, CancellationToken cancellationToken)
@@ -88,6 +91,7 @@ public sealed class WorkflowsController : ControllerBase
         }
 
         var workflow = await _unitOfWork.Workflows.Query()
+            .VisibleTo(User.GetUserId(), User.IsAdmin())
             .Include(item => item.Steps.OrderBy(step => step.Order))
             .FirstOrDefaultAsync(item => item.Id == id && item.RealmId == realmId, cancellationToken);
         if (workflow is null)
@@ -142,6 +146,7 @@ public sealed class WorkflowsController : ControllerBase
     {
         var workflow = await _unitOfWork.Workflows.Query()
             .Include(item => item.Agents)
+            .Include(item => item.Steps)
             .FirstOrDefaultAsync(item => item.Id == id && item.RealmId == RealmAccess.ResolveRealmId(this), cancellationToken);
         if (workflow is null)
         {
@@ -159,6 +164,21 @@ public sealed class WorkflowsController : ControllerBase
         if (nameConflict)
         {
             return Conflict(ApiResponse<WorkflowDto>.Fail("Another workflow with this name already exists."));
+        }
+
+        if (request.Visibility == ArtifactVisibility.Realm)
+        {
+            var agentIds = workflow.Steps.Where(step => step.AgentId.HasValue).Select(step => step.AgentId!.Value).ToArray();
+            var toolIds = workflow.Steps.Where(step => step.ToolId.HasValue).Select(step => step.ToolId!.Value).ToArray();
+            var hasPrivateDependency = await _unitOfWork.Agents.Query()
+                .AnyAsync(agent => agentIds.Contains(agent.Id) && agent.Visibility == ArtifactVisibility.Private, cancellationToken)
+                || await _unitOfWork.Tools.Query()
+                    .AnyAsync(tool => toolIds.Contains(tool.Id) && tool.Visibility == ArtifactVisibility.Private, cancellationToken);
+
+            if (hasPrivateDependency)
+            {
+                return BadRequest(ApiResponse<WorkflowDto>.Fail("This workflow contains private agents or tools. Share those dependencies before making the workflow visible to the User Realm."));
+            }
         }
 
         _mapper.Map(request, workflow);
@@ -260,7 +280,7 @@ public sealed class WorkflowsController : ControllerBase
             return Forbid();
         }
 
-        var targetError = await ValidateStepTargetAsync(request.StepType, request.ToolId, request.AgentId, cancellationToken);
+        var targetError = await ValidateStepTargetAsync(parentWorkflow!.Visibility, request.StepType, request.ToolId, request.AgentId, cancellationToken);
         if (targetError is not null)
         {
             return BadRequest(ApiResponse<WorkflowStepDto>.Fail(targetError));
@@ -341,16 +361,16 @@ public sealed class WorkflowsController : ControllerBase
         {
             return NotFound(ApiResponse<WorkflowStepDto>.Fail("Workflow step was not found."));
         }
-        var workflowOwnerId = await _unitOfWork.Workflows.Query()
+        var workflowAccess = await _unitOfWork.Workflows.Query()
             .Where(workflow => workflow.Id == workflowId)
-            .Select(workflow => workflow.CreatedByUserId)
+            .Select(workflow => new { workflow.CreatedByUserId, workflow.Visibility })
             .FirstOrDefaultAsync(cancellationToken);
-        if (!User.CanModifyArtifact(workflowOwnerId))
+        if (workflowAccess is null || !User.CanModifyArtifact(workflowAccess.CreatedByUserId))
         {
             return Forbid();
         }
 
-        var targetError = await ValidateStepTargetAsync(request.StepType, request.ToolId, request.AgentId, cancellationToken);
+        var targetError = await ValidateStepTargetAsync(workflowAccess.Visibility, request.StepType, request.ToolId, request.AgentId, cancellationToken);
         if (targetError is not null)
         {
             return BadRequest(ApiResponse<WorkflowStepDto>.Fail(targetError));
@@ -413,21 +433,46 @@ public sealed class WorkflowsController : ControllerBase
     }
 
     private async Task<string?> ValidateStepTargetAsync(
+        ArtifactVisibility workflowVisibility,
         WorkflowStepType stepType,
         Guid? toolId,
         Guid? agentId,
         CancellationToken cancellationToken)
     {
-        if (stepType == WorkflowStepType.Tool
-            && (!toolId.HasValue || !await _unitOfWork.Tools.AnyAsync(tool => tool.Id == toolId.Value && tool.RealmId == RealmAccess.ResolveRealmId(this), cancellationToken)))
+        if (stepType == WorkflowStepType.Tool)
         {
-            return "Tool target was not found.";
+            var tool = toolId.HasValue
+                ? await _unitOfWork.Tools.Query()
+                    .InRealm(RealmAccess.ResolveRealmId(this))
+                    .VisibleTo(User.GetUserId(), User.IsAdmin())
+                    .FirstOrDefaultAsync(item => item.Id == toolId.Value, cancellationToken)
+                : null;
+            if (tool is null)
+            {
+                return "Tool target was not found.";
+            }
+            if (workflowVisibility == ArtifactVisibility.Realm && tool.Visibility == ArtifactVisibility.Private)
+            {
+                return "A realm-visible workflow cannot contain a private tool.";
+            }
         }
 
-        if (stepType == WorkflowStepType.Agent
-            && (!agentId.HasValue || !await _unitOfWork.Agents.AnyAsync(agent => agent.Id == agentId.Value && agent.RealmId == RealmAccess.ResolveRealmId(this), cancellationToken)))
+        if (stepType == WorkflowStepType.Agent)
         {
-            return "Agent target was not found.";
+            var agent = agentId.HasValue
+                ? await _unitOfWork.Agents.Query()
+                    .InRealm(RealmAccess.ResolveRealmId(this))
+                    .VisibleTo(User.GetUserId(), User.IsAdmin())
+                    .FirstOrDefaultAsync(item => item.Id == agentId.Value, cancellationToken)
+                : null;
+            if (agent is null)
+            {
+                return "Agent target was not found.";
+            }
+            if (workflowVisibility == ArtifactVisibility.Realm && agent.Visibility == ArtifactVisibility.Private)
+            {
+                return "A realm-visible workflow cannot contain a private agent.";
+            }
         }
 
         return null;

@@ -1,3 +1,5 @@
+using AgenticPlatform.Core.Enums;
+
 namespace AgenticPlatform.Core.DTOs.Tools;
 
 public sealed class UpdateToolDto
@@ -9,4 +11,5 @@ public sealed class UpdateToolDto
     public string EndpointUrl { get; set; } = string.Empty;
     public string? SecretJson { get; set; }
     public bool IsEnabled { get; set; }
+    public ArtifactVisibility Visibility { get; set; } = ArtifactVisibility.Realm;
 }

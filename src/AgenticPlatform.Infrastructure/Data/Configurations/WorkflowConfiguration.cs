@@ -29,6 +29,12 @@ public sealed class WorkflowConfiguration : IEntityTypeConfiguration<Workflow>
         builder.Property(workflow => workflow.Description)
             .HasMaxLength(1000);
 
+        builder.Property(workflow => workflow.Visibility)
+            .HasConversion<string>()
+            .HasMaxLength(20)
+            .HasDefaultValue(AgenticPlatform.Core.Enums.ArtifactVisibility.Realm)
+            .IsRequired();
+
         builder.Property(workflow => workflow.CreatedByDisplayName)
             .HasMaxLength(150);
 

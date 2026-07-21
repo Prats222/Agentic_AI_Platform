@@ -32,6 +32,12 @@ public sealed class ContextDocumentConfiguration : IEntityTypeConfiguration<Cont
         builder.Property(document => document.PublishedByDisplayName)
             .HasMaxLength(150);
 
+        builder.Property(document => document.Visibility)
+            .HasConversion<string>()
+            .HasMaxLength(20)
+            .HasDefaultValue(AgenticPlatform.Core.Enums.ArtifactVisibility.Realm)
+            .IsRequired();
+
         builder.Property(document => document.FileName)
             .HasMaxLength(260)
             .IsRequired();

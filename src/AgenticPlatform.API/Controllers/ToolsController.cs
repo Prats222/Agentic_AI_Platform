@@ -36,7 +36,7 @@ public sealed class ToolsController : ControllerBase
     }
 
     [HttpGet]
-    [ResponseCache(Duration = 30, Location = ResponseCacheLocation.Any, VaryByQueryKeys = ["*"], VaryByHeader = RealmAccess.HeaderName)]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     [ProducesResponseType(typeof(ApiResponse<PagedResult<ToolDto>>), StatusCodes.Status200OK)]
     public async Task<ActionResult<ApiResponse<PagedResult<ToolDto>>>> GetTools(
         [FromQuery] ToolQueryParameters queryParameters,
@@ -48,7 +48,10 @@ public sealed class ToolsController : ControllerBase
             return Forbid();
         }
 
-        var query = _unitOfWork.Tools.Query().AsNoTracking().InRealm(realmId);
+        var query = _unitOfWork.Tools.Query()
+            .AsNoTracking()
+            .InRealm(realmId)
+            .VisibleTo(User.GetUserId(), User.IsAdmin());
 
         if (!string.IsNullOrWhiteSpace(queryParameters.Name))
         {
@@ -84,12 +87,14 @@ public sealed class ToolsController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
-    [ResponseCache(Duration = 30, Location = ResponseCacheLocation.Any, VaryByHeader = RealmAccess.HeaderName)]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     [ProducesResponseType(typeof(ApiResponse<ToolDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<ToolDto>), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<ApiResponse<ToolDto>>> GetTool(Guid id, CancellationToken cancellationToken)
     {
-        var tool = await _unitOfWork.Tools.Query().FirstOrDefaultAsync(item => item.Id == id && item.RealmId == RealmAccess.ResolveRealmId(this), cancellationToken);
+        var tool = await _unitOfWork.Tools.Query()
+            .VisibleTo(User.GetUserId(), User.IsAdmin())
+            .FirstOrDefaultAsync(item => item.Id == id && item.RealmId == RealmAccess.ResolveRealmId(this), cancellationToken);
         if (tool is null)
         {
             return NotFound(ApiResponse<ToolDto>.Fail("Tool was not found."));
@@ -109,7 +114,10 @@ public sealed class ToolsController : ControllerBase
         CancellationToken cancellationToken)
     {
         var realmId = RealmAccess.ResolveRealmId(this);
-        if (!await _unitOfWork.Tools.AnyAsync(tool => tool.Id == id && tool.RealmId == realmId, cancellationToken))
+        if (!await _unitOfWork.Tools.Query()
+            .InRealm(realmId)
+            .VisibleTo(User.GetUserId(), User.IsAdmin())
+            .AnyAsync(tool => tool.Id == id, cancellationToken))
         {
             return NotFound(ApiResponse<ToolExecutionResultDto>.Fail("Tool was not found."));
         }

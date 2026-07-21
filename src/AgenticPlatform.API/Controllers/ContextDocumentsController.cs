@@ -5,8 +5,10 @@ using AgenticPlatform.Core.Common;
 using AgenticPlatform.Core.Constants;
 using AgenticPlatform.Core.DTOs.ContextDocuments;
 using AgenticPlatform.Core.Entities;
+using AgenticPlatform.Core.Enums;
 using AgenticPlatform.Infrastructure.Data;
 using AgenticPlatform.API.Realms;
+using AgenticPlatform.API.Extensions;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -47,6 +49,7 @@ public sealed class ContextDocumentsController : ControllerBase
         var documents = await _dbContext.ContextDocuments
             .AsNoTracking()
             .InRealm(realmId)
+            .VisibleTo(User.GetUserId(), User.IsAdmin())
             .OrderByDescending(document => document.CreatedAt)
             .Select(document => new ContextDocumentDto
             {
@@ -57,6 +60,7 @@ public sealed class ContextDocumentsController : ControllerBase
                 ContentType = document.ContentType,
                 FileExtension = document.FileExtension,
                 SizeBytes = document.SizeBytes,
+                Visibility = document.Visibility,
                 CreatedAt = document.CreatedAt,
                 CreatedByUserId = document.CreatedByUserId,
                 CreatedByDisplayName = document.CreatedByDisplayName,
@@ -78,6 +82,7 @@ public sealed class ContextDocumentsController : ControllerBase
     public async Task<ActionResult<ApiResponse<ContextDocumentDto>>> UploadDocument(
         IFormFile file,
         [FromForm] string? name,
+        [FromForm] ArtifactVisibility visibility,
         CancellationToken cancellationToken)
     {
         var realmId = RealmAccess.ResolveRealmId(this);
@@ -117,7 +122,10 @@ public sealed class ContextDocumentsController : ControllerBase
             FileExtension = extension,
             SizeBytes = file.Length,
             StoragePath = storagePath,
-            ExtractedText = extractedText
+            ExtractedText = extractedText,
+            Visibility = visibility,
+            CreatedByUserId = User.GetUserId(),
+            CreatedByDisplayName = User.GetDisplayName()
         };
 
         await _dbContext.ContextDocuments.AddAsync(document, cancellationToken);
@@ -132,6 +140,7 @@ public sealed class ContextDocumentsController : ControllerBase
             ContentType = document.ContentType,
             FileExtension = document.FileExtension,
             SizeBytes = document.SizeBytes,
+            Visibility = document.Visibility,
             CreatedAt = document.CreatedAt,
             CreatedByUserId = document.CreatedByUserId,
             CreatedByDisplayName = document.CreatedByDisplayName,
@@ -156,6 +165,11 @@ public sealed class ContextDocumentsController : ControllerBase
         if (document is null)
         {
             return NoContent();
+        }
+
+        if (!User.CanModifyArtifact(document.CreatedByUserId))
+        {
+            return Forbid();
         }
 
         document.Agents.Clear();

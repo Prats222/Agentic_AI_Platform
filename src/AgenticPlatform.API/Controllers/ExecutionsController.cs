@@ -7,6 +7,7 @@ using AgenticPlatform.Core.Enums;
 using AgenticPlatform.Core.Interfaces;
 using AgenticPlatform.Core.Queries;
 using AgenticPlatform.API.Realms;
+using AgenticPlatform.API.Extensions;
 using Asp.Versioning;
 using AutoMapper;
 using AutoMapper.QueryableExtensions;
@@ -48,8 +49,10 @@ public sealed class ExecutionsController : ControllerBase
         }
 
         var targetExists = request.TargetType == ExecutionTargetType.Agent
-            ? await _unitOfWork.Agents.AnyAsync(agent => agent.Id == request.TargetId && agent.RealmId == realmId, cancellationToken)
-            : await _unitOfWork.Workflows.AnyAsync(workflow => workflow.Id == request.TargetId && workflow.RealmId == realmId, cancellationToken);
+            ? await _unitOfWork.Agents.Query().InRealm(realmId).VisibleTo(User.GetUserId(), User.IsAdmin())
+                .AnyAsync(agent => agent.Id == request.TargetId, cancellationToken)
+            : await _unitOfWork.Workflows.Query().InRealm(realmId).VisibleTo(User.GetUserId(), User.IsAdmin())
+                .AnyAsync(workflow => workflow.Id == request.TargetId, cancellationToken);
 
         if (!targetExists)
         {
@@ -84,7 +87,9 @@ public sealed class ExecutionsController : ControllerBase
     public async Task<ActionResult<ApiResponse<ExecutionDto>>> RetryExecution(Guid id, CancellationToken cancellationToken)
     {
         var previousExecution = await _unitOfWork.Executions.GetByIdAsync(id, cancellationToken);
-        if (previousExecution is null || previousExecution.RealmId != RealmAccess.ResolveRealmId(this))
+        if (previousExecution is null
+            || previousExecution.RealmId != RealmAccess.ResolveRealmId(this)
+            || (!User.IsAdmin() && previousExecution.TriggeredByUserId != GetCurrentUserId()))
         {
             return NotFound(ApiResponse<ExecutionDto>.Fail("Execution was not found."));
         }
@@ -116,7 +121,9 @@ public sealed class ExecutionsController : ControllerBase
     public async Task<ActionResult<ApiResponse<ExecutionDto>>> GetExecution(Guid id, CancellationToken cancellationToken)
     {
         var execution = await _unitOfWork.Executions.GetWithLogsAsync(id, cancellationToken);
-        if (execution is null || execution.RealmId != RealmAccess.ResolveRealmId(this))
+        if (execution is null
+            || execution.RealmId != RealmAccess.ResolveRealmId(this)
+            || (!User.IsAdmin() && execution.TriggeredByUserId != GetCurrentUserId()))
         {
             return NotFound(ApiResponse<ExecutionDto>.Fail("Execution was not found."));
         }
@@ -141,6 +148,12 @@ public sealed class ExecutionsController : ControllerBase
             .InRealm(realmId)
             .OrderByDescending(execution => execution.CreatedAt)
             .AsQueryable();
+
+        if (!User.IsAdmin())
+        {
+            var userId = GetCurrentUserId();
+            query = query.Where(execution => execution.TriggeredByUserId == userId);
+        }
 
         if (queryParameters.Status.HasValue)
         {

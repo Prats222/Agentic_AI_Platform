@@ -6,9 +6,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useRef, useState } from 'react'
 import type { DragEvent } from 'react'
 import { apiClient } from '../api/client'
+import { getApiErrorMessage } from '../api/errorMessage'
 import type { Workflow } from '../api/types'
 import { DataPanel } from '../components/DataPanel'
 import { AdminVerifiedChip } from '../components/AdminVerifiedChip'
+import { ArtifactVisibilityChip, ArtifactVisibilityField } from '../components/ArtifactVisibilityField'
 import { PublishArtifactButton } from '../components/PublishArtifactButton'
 import { SectionHeader } from '../components/SectionHeader'
 import { useAuth } from '../state/AuthContext'
@@ -28,6 +30,7 @@ export function WorkflowsPage() {
   const tools = useQuery({ queryKey: ['tools'], queryFn: apiClient.getTools })
   const [workflowName, setWorkflowName] = useState('')
   const [workflowDescription, setWorkflowDescription] = useState('')
+  const [workflowVisibility, setWorkflowVisibility] = useState<'Private' | 'Realm'>('Private')
   const [editingWorkflowId, setEditingWorkflowId] = useState<string | undefined>()
   const [search, setSearch] = useState('')
   const [steps, setSteps] = useState<BuilderStep[]>([])
@@ -36,17 +39,19 @@ export function WorkflowsPage() {
 
   const searchableAgents = useMemo(() => {
     const value = search.trim().toLowerCase()
-    const filtered = (agents.data?.items ?? []).filter((agent) =>
-      [agent.name, agent.projectName, agent.role, agent.tags].some((field) => field?.toLowerCase().includes(value)),
-    )
+    const filtered = (agents.data?.items ?? [])
+      .filter((agent) => workflowVisibility === 'Private' || agent.visibility === 'Realm')
+      .filter((agent) => [agent.name, agent.projectName, agent.role, agent.tags].some((field) => field?.toLowerCase().includes(value)))
     return value ? filtered : latestItems(filtered, 4)
-  }, [agents.data, search])
+  }, [agents.data, search, workflowVisibility])
 
   const searchableTools = useMemo(() => {
     const value = search.trim().toLowerCase()
-    const filtered = (tools.data?.items ?? []).filter((tool) => [tool.name, tool.category].some((field) => field?.toLowerCase().includes(value)))
+    const filtered = (tools.data?.items ?? [])
+      .filter((tool) => workflowVisibility === 'Private' || tool.visibility === 'Realm')
+      .filter((tool) => [tool.name, tool.category].some((field) => field?.toLowerCase().includes(value)))
     return value ? filtered : latestItems(filtered, 4)
-  }, [tools.data, search])
+  }, [tools.data, search, workflowVisibility])
 
   const createWorkflow = useMutation({
     mutationFn: async () => {
@@ -54,6 +59,7 @@ export function WorkflowsPage() {
         name: workflowName,
         description: workflowDescription,
         status: 'Active',
+        visibility: workflowVisibility,
       })
 
       for (const [index, step] of steps.entries()) {
@@ -83,11 +89,16 @@ export function WorkflowsPage() {
     mutationFn: async () => {
       const workflowId = editingWorkflowId!
       const existingWorkflow = await apiClient.getWorkflow(workflowId)
-      await apiClient.updateWorkflow(workflowId, {
+      const request = {
         name: workflowName,
         description: workflowDescription,
         status: 'Active',
-      })
+        visibility: workflowVisibility,
+      } as const
+
+      if (workflowVisibility === 'Private') {
+        await apiClient.updateWorkflow(workflowId, request)
+      }
 
       for (const step of existingWorkflow.steps ?? []) {
         await apiClient.deleteWorkflowStep(workflowId, step.id)
@@ -95,6 +106,10 @@ export function WorkflowsPage() {
 
       for (const [index, step] of steps.entries()) {
         await apiClient.createWorkflowStep(workflowId, buildWorkflowStepRequest(step, index))
+      }
+
+      if (workflowVisibility === 'Realm') {
+        await apiClient.updateWorkflow(workflowId, request)
       }
 
       return apiClient.getWorkflow(workflowId)
@@ -127,6 +142,7 @@ export function WorkflowsPage() {
   function resetWorkflowForm() {
     setWorkflowName('')
     setWorkflowDescription('')
+    setWorkflowVisibility('Private')
     setEditingWorkflowId(undefined)
     setSteps([])
   }
@@ -135,6 +151,7 @@ export function WorkflowsPage() {
     setEditingWorkflowId(workflow.id)
     setWorkflowName(workflow.name)
     setWorkflowDescription(workflow.description ?? '')
+    setWorkflowVisibility(workflow.visibility)
     setSteps((workflow.steps ?? []).sort((left, right) => left.order - right.order).map((step) => {
       const agent = (agents.data?.items ?? []).find((item) => item.id === step.agentId)
       const tool = (tools.data?.items ?? []).find((item) => item.id === step.toolId)
@@ -191,6 +208,9 @@ export function WorkflowsPage() {
                 />
               </Grid>
             </Grid>
+            <Box sx={{ mt: 2, maxWidth: 420 }}>
+              <ArtifactVisibilityField value={workflowVisibility} onChange={setWorkflowVisibility} />
+            </Box>
             <Box
               onDragOver={(event) => event.preventDefault()}
               onDrop={dropStep}
@@ -236,7 +256,7 @@ export function WorkflowsPage() {
             )}
             {(createWorkflow.isError || updateWorkflow.isError || deleteWorkflow.isError) && (
               <Alert severity="error" sx={{ mt: 2 }}>
-                Workflow action failed. It may still be referenced by existing executions.
+                {getApiErrorMessage(createWorkflow.error ?? updateWorkflow.error ?? deleteWorkflow.error, 'Workflow action failed.')}
               </Alert>
             )}
           </Paper>
@@ -256,6 +276,7 @@ export function WorkflowsPage() {
                 <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
                   <Typography sx={{ fontWeight: 900 }}>{row.name}</Typography>
                   <AdminVerifiedChip publishedAt={row.publishedAt} publishedByDisplayName={row.publishedByDisplayName} />
+                  <ArtifactVisibilityChip visibility={row.visibility} />
                 </Stack>
                 <Typography variant="caption" color="text.secondary">
                   {row.description || 'No description'}

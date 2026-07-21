@@ -4,9 +4,11 @@ import UploadFileIcon from '@mui/icons-material/UploadFile'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { apiClient } from '../api/client'
+import { getApiErrorMessage } from '../api/errorMessage'
 import type { ContextDocument } from '../api/types'
 import { DataPanel } from '../components/DataPanel'
 import { AdminVerifiedChip } from '../components/AdminVerifiedChip'
+import { ArtifactVisibilityChip, ArtifactVisibilityField } from '../components/ArtifactVisibilityField'
 import { PublishArtifactButton } from '../components/PublishArtifactButton'
 import { SectionHeader } from '../components/SectionHeader'
 import { useAuth } from '../state/AuthContext'
@@ -17,14 +19,16 @@ export function ContextLibraryPage() {
   const documents = useQuery({ queryKey: ['contextDocuments'], queryFn: apiClient.getContextDocuments })
   const [name, setName] = useState('')
   const [file, setFile] = useState<File | undefined>()
+  const [visibility, setVisibility] = useState<'Private' | 'Realm'>('Private')
   const [dragging, setDragging] = useState(false)
 
   const upload = useMutation({
-    mutationFn: () => apiClient.uploadContextDocument(file!, name),
+    mutationFn: () => apiClient.uploadContextDocument(file!, name, visibility),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contextDocuments'] })
       setName('')
       setFile(undefined)
+      setVisibility('Private')
     },
   })
 
@@ -49,6 +53,7 @@ export function ContextLibraryPage() {
             Supported files: text, JSON, Markdown, CSV, PDF, DOCX, and Excel. Drag a file here to avoid slow Windows folder dialogs.
           </Typography>
           <TextField label="Document Name" value={name} onChange={(event) => setName(event.target.value)} fullWidth />
+          <ArtifactVisibilityField value={visibility} onChange={setVisibility} />
           <Paper
             variant="outlined"
             onDragOver={(event) => {
@@ -102,7 +107,7 @@ export function ContextLibraryPage() {
             Upload Context
           </Button>
           {upload.isSuccess && <Alert severity="success">Context document uploaded.</Alert>}
-          {upload.isError && <Alert severity="error">Upload failed. Check file type and size.</Alert>}
+          {upload.isError && <Alert severity="error">{getApiErrorMessage(upload.error, 'Upload failed. Check file type and size.')}</Alert>}
         </Stack>
       </Paper>
       <DataPanel<ContextDocument>
@@ -119,6 +124,7 @@ export function ContextLibraryPage() {
                 <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
                   <Typography sx={{ fontWeight: 900 }}>{row.name}</Typography>
                   <AdminVerifiedChip publishedAt={row.publishedAt} publishedByDisplayName={row.publishedByDisplayName} />
+                  <ArtifactVisibilityChip visibility={row.visibility} />
                 </Stack>
                 <Typography variant="caption" color="text.secondary">
                   {row.fileName}

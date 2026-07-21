@@ -35,6 +35,7 @@ export function AutopilotPage() {
         name: workflowName,
         description: `Autopilot generated: ${goal}`,
         status: 'Active',
+        visibility: 'Private',
       })
 
       let order = 1
@@ -226,6 +227,7 @@ function buildCreateAgentRequest(draft: AgentDraft, originalGoal: string) {
     aiTopP: 0.9,
     aiSystemPrompt: `Role: ${draft.role}\nGoal: ${draft.goal}\nExpected output: ${draft.expectedOutput}`,
     status: 'Active',
+    visibility: 'Private' as const,
   }
 }
 

@@ -29,6 +29,8 @@ export type SignUpRequest = {
   password: string
 }
 
+export type ArtifactVisibility = 'Private' | 'Realm'
+
 export type Agent = {
   id: string
   realmId: string
@@ -46,6 +48,7 @@ export type Agent = {
   aiProvider?: string
   aiModel?: string
   status: string
+  visibility: ArtifactVisibility
   toolIds: string[]
   toolNames: string[]
   contextDocumentIds: string[]
@@ -80,6 +83,7 @@ export type CreateAgentRequest = {
   aiSystemPrompt?: string
   aiBaseUrl?: string
   status: string
+  visibility: ArtifactVisibility
 }
 
 export type UpdateAgentRequest = CreateAgentRequest
@@ -95,6 +99,7 @@ export type Tool = {
   secretJson?: string
   hasSecrets?: boolean
   isEnabled: boolean
+  visibility: ArtifactVisibility
   createdAt: string
   createdByUserId?: string
   createdByDisplayName?: string
@@ -112,6 +117,7 @@ export type CreateToolRequest = {
   endpointUrl: string
   secretJson?: string
   isEnabled: boolean
+  visibility: ArtifactVisibility
 }
 
 export type WorkflowStep = {
@@ -131,6 +137,7 @@ export type Workflow = {
   name: string
   description?: string
   status: string
+  visibility: ArtifactVisibility
   createdAt: string
   createdByUserId?: string
   createdByDisplayName?: string
@@ -145,6 +152,7 @@ export type CreateWorkflowRequest = {
   name: string
   description?: string
   status: string
+  visibility: ArtifactVisibility
 }
 
 export type UpdateWorkflowRequest = CreateWorkflowRequest
@@ -280,6 +288,7 @@ export type ContextDocument = {
   contentType: string
   fileExtension: string
   sizeBytes: number
+  visibility: ArtifactVisibility
   createdAt: string
   createdByUserId?: string
   createdByDisplayName?: string

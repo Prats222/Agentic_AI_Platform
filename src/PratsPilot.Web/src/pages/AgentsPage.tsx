@@ -6,10 +6,12 @@ import SaveIcon from '@mui/icons-material/Save'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { apiClient } from '../api/client'
+import { getApiErrorMessage } from '../api/errorMessage'
 import { fallbackModelCatalog, providerDefaults } from '../api/modelCatalog'
 import type { Agent, Tool } from '../api/types'
 import { DataPanel } from '../components/DataPanel'
 import { AdminVerifiedChip } from '../components/AdminVerifiedChip'
+import { ArtifactVisibilityChip, ArtifactVisibilityField } from '../components/ArtifactVisibilityField'
 import { PublishArtifactButton } from '../components/PublishArtifactButton'
 import { SectionHeader } from '../components/SectionHeader'
 import { useAuth } from '../state/AuthContext'
@@ -38,6 +40,7 @@ export function AgentsPage() {
     aiModel: providerDefaults.Gemini.model,
     aiBaseUrl: providerDefaults.Gemini.baseUrl,
     aiTemperature: 0.2,
+    visibility: 'Private' as 'Private' | 'Realm',
   })
   const models = useQuery({
     queryKey: ['llmModels', 'agent', form.aiProvider],
@@ -113,6 +116,7 @@ export function AgentsPage() {
       tags: '',
       description: '',
       useGlobalAISettings: true,
+      visibility: 'Private',
     }))
     setSelectedToolIds([])
     setSelectedContextDocumentIds([])
@@ -133,6 +137,7 @@ export function AgentsPage() {
       aiModel: agent.aiModel ?? providerDefaults.Gemini.model,
       aiBaseUrl: '',
       aiTemperature: 0.2,
+      visibility: agent.visibility,
     })
     setSelectedToolIds(agent.toolIds ?? [])
     setSelectedContextDocumentIds(agent.contextDocumentIds ?? [])
@@ -217,7 +222,7 @@ export function AgentsPage() {
               multiple
               disableCloseOnSelect
               loading={tools.isLoading}
-              options={toolOptions}
+              options={form.visibility === 'Realm' ? toolOptions.filter((tool) => tool.visibility === 'Realm') : toolOptions}
               value={selectedTools}
               groupBy={(option) => {
                 if (isBuiltInTool(option)) return 'Built-in tools'
@@ -260,7 +265,7 @@ export function AgentsPage() {
             <Autocomplete
               multiple
               loading={contextDocuments.isLoading}
-              options={contextDocuments.data ?? []}
+              options={form.visibility === 'Realm' ? (contextDocuments.data ?? []).filter((document) => document.visibility === 'Realm') : contextDocuments.data ?? []}
               value={selectedContextDocuments}
               getOptionLabel={(option) => `${option.name} (${option.fileExtension})`}
               isOptionEqualToValue={(option, value) => option.id === value.id}
@@ -273,6 +278,12 @@ export function AgentsPage() {
                   helperText="Upload documents in Context Library, then attach them here."
                 />
               )}
+            />
+          </Grid>
+          <Grid size={{ xs: 12, md: 4 }}>
+            <ArtifactVisibilityField
+              value={form.visibility}
+              onChange={(visibility) => setForm({ ...form, visibility })}
             />
           </Grid>
           <Grid size={12}>
@@ -291,7 +302,7 @@ export function AgentsPage() {
                 </Button>
               )}
               {(createAgent.isError || updateAgent.isError || deleteAgent.isError) && (
-                <Alert severity="error">Agent action failed. It may still be referenced by a workflow or execution.</Alert>
+                <Alert severity="error">{getApiErrorMessage(createAgent.error ?? updateAgent.error ?? deleteAgent.error, 'Agent action failed.')}</Alert>
               )}
             </Stack>
           </Grid>
@@ -312,6 +323,7 @@ export function AgentsPage() {
                 <Stack direction="row" sx={{ gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
                   <Typography sx={{ fontWeight: 900 }}>{row.name}</Typography>
                   <AdminVerifiedChip publishedAt={row.publishedAt} publishedByDisplayName={row.publishedByDisplayName} />
+                  <ArtifactVisibilityChip visibility={row.visibility} />
                 </Stack>
                 <Typography variant="caption" color="text.secondary">
                   {row.projectName || 'No project'} · {row.role || row.description || 'No role'}
@@ -435,6 +447,7 @@ function buildAgentRequest(form: {
   aiModel: string
   aiBaseUrl?: string
   aiTemperature?: number
+  visibility: 'Private' | 'Realm'
 }) {
   return {
     ...form,

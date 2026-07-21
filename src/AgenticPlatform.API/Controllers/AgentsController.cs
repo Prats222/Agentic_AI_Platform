@@ -2,6 +2,7 @@ using AgenticPlatform.Core.Common;
 using AgenticPlatform.Core.Constants;
 using AgenticPlatform.Core.DTOs.Agents;
 using AgenticPlatform.Core.Entities;
+using AgenticPlatform.Core.Enums;
 using AgenticPlatform.Core.Interfaces;
 using AgenticPlatform.Core.Queries;
 using AgenticPlatform.API.Realms;
@@ -31,7 +32,7 @@ public sealed class AgentsController : ControllerBase
     }
 
     [HttpGet]
-    [ResponseCache(Duration = 30, Location = ResponseCacheLocation.Any, VaryByQueryKeys = ["*"], VaryByHeader = RealmAccess.HeaderName)]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     [ProducesResponseType(typeof(ApiResponse<PagedResult<AgentDto>>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -45,7 +46,10 @@ public sealed class AgentsController : ControllerBase
             return Forbid();
         }
 
-        var query = _unitOfWork.Agents.Query().AsNoTracking().InRealm(realmId);
+        var query = _unitOfWork.Agents.Query()
+            .AsNoTracking()
+            .InRealm(realmId)
+            .VisibleTo(User.GetUserId(), User.IsAdmin());
 
         if (!string.IsNullOrWhiteSpace(queryParameters.Name))
         {
@@ -79,7 +83,7 @@ public sealed class AgentsController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
-    [ResponseCache(Duration = 30, Location = ResponseCacheLocation.Any, VaryByHeader = RealmAccess.HeaderName)]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     [ProducesResponseType(typeof(ApiResponse<AgentDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<AgentDto>), StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -87,6 +91,7 @@ public sealed class AgentsController : ControllerBase
     public async Task<ActionResult<ApiResponse<AgentDto>>> GetAgent(Guid id, CancellationToken cancellationToken)
     {
         var agent = await _unitOfWork.Agents.Query()
+            .VisibleTo(User.GetUserId(), User.IsAdmin())
             .Include(item => item.Tools)
             .Include(item => item.ContextDocuments)
             .FirstOrDefaultAsync(item => item.Id == id && item.RealmId == RealmAccess.ResolveRealmId(this), cancellationToken);
@@ -126,12 +131,19 @@ public sealed class AgentsController : ControllerBase
             ? new List<ContextDocument>()
             : await _unitOfWork.Repository<ContextDocument>().Query()
                 .InRealm(agent.RealmId)
+                .VisibleTo(User.GetUserId(), User.IsAdmin())
                 .Where(document => distinctDocumentIds.Contains(document.Id))
                 .ToListAsync(cancellationToken);
 
         if (documents.Count != distinctDocumentIds.Length)
         {
             return BadRequest(ApiResponse<AgentDto>.Fail("One or more selected context documents were not found."));
+        }
+
+        if (agent.Visibility == ArtifactVisibility.Realm
+            && documents.Any(document => document.Visibility == ArtifactVisibility.Private))
+        {
+            return BadRequest(ApiResponse<AgentDto>.Fail("A realm-visible agent cannot use private context documents. Share the documents first or keep the agent private."));
         }
 
         agent.ContextDocuments.Clear();
@@ -196,6 +208,7 @@ public sealed class AgentsController : ControllerBase
     {
         var agent = await _unitOfWork.Agents.Query()
             .Include(item => item.Tools)
+            .Include(item => item.ContextDocuments)
             .Include(item => item.Workflows)
             .FirstOrDefaultAsync(item => item.Id == id && item.RealmId == RealmAccess.ResolveRealmId(this), cancellationToken);
         if (agent is null)
@@ -214,6 +227,13 @@ public sealed class AgentsController : ControllerBase
         if (nameConflict)
         {
             return Conflict(ApiResponse<AgentDto>.Fail("Another agent with this name already exists."));
+        }
+
+        if (request.Visibility == ArtifactVisibility.Realm
+            && (agent.Tools.Any(tool => tool.Visibility == ArtifactVisibility.Private)
+                || agent.ContextDocuments.Any(document => document.Visibility == ArtifactVisibility.Private)))
+        {
+            return BadRequest(ApiResponse<AgentDto>.Fail("This agent uses private tools or context documents. Share those dependencies before making the agent visible to the User Realm."));
         }
 
         _mapper.Map(request, agent);
@@ -251,12 +271,19 @@ public sealed class AgentsController : ControllerBase
             ? new List<Tool>()
             : await _unitOfWork.Tools.Query()
                 .InRealm(agent.RealmId)
+                .VisibleTo(User.GetUserId(), User.IsAdmin())
                 .Where(tool => distinctToolIds.Contains(tool.Id))
                 .ToListAsync(cancellationToken);
 
         if (tools.Count != distinctToolIds.Length)
         {
             return BadRequest(ApiResponse<AgentDto>.Fail("One or more selected tools were not found."));
+        }
+
+        if (agent.Visibility == ArtifactVisibility.Realm
+            && tools.Any(tool => tool.Visibility == ArtifactVisibility.Private))
+        {
+            return BadRequest(ApiResponse<AgentDto>.Fail("A realm-visible agent cannot use private tools. Share the tools first or keep the agent private."));
         }
 
         agent.Tools.Clear();
@@ -307,9 +334,29 @@ public sealed class AgentsController : ControllerBase
                 .Where(log => executionIds.Contains(log.ExecutionId))
                 .ToListAsync(cancellationToken);
 
+        var arenaEntries = await _unitOfWork.Repository<ArenaEntry>()
+            .Query()
+            .Where(entry => entry.AgentId == id)
+            .ToListAsync(cancellationToken);
+        var arenaEntryIds = arenaEntries.Select(entry => entry.Id).ToArray();
+        var affectedChallenges = arenaEntryIds.Length == 0
+            ? new List<ArenaChallenge>()
+            : await _unitOfWork.Repository<ArenaChallenge>()
+                .Query()
+                .Where(challenge => challenge.WinnerEntryId.HasValue
+                    && arenaEntryIds.Contains(challenge.WinnerEntryId.Value))
+                .ToListAsync(cancellationToken);
+
+        foreach (var challenge in affectedChallenges)
+        {
+            challenge.WinnerEntryId = null;
+            challenge.JudgeSummary = "The winning entry was removed with its agent.";
+        }
+
         _unitOfWork.Repository<ExecutionLog>().RemoveRange(executionLogs);
         _unitOfWork.Repository<Execution>().RemoveRange(executions);
         _unitOfWork.Repository<WorkflowStep>().RemoveRange(workflowSteps);
+        _unitOfWork.Repository<ArenaEntry>().RemoveRange(arenaEntries);
         agent.Tools.Clear();
         agent.Workflows.Clear();
         _unitOfWork.Agents.Remove(agent);

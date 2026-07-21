@@ -106,10 +106,11 @@ export const apiClient = {
     unwrap<Agent>(api.put(`/agents/${id}/context-documents`, { contextDocumentIds })),
   deleteAgent: (id: string) => api.delete(`/agents/${id}`),
   getContextDocuments: () => unwrap<ContextDocument[]>(api.get('/context-documents', { params: noCacheParams() })),
-  uploadContextDocument: (file: File, name?: string) => {
+  uploadContextDocument: (file: File, name: string | undefined, visibility: 'Private' | 'Realm') => {
     const formData = new FormData()
     formData.append('file', file)
     if (name) formData.append('name', name)
+    formData.append('visibility', visibility)
     return unwrap<ContextDocument>(api.post('/context-documents', formData, { headers: { 'Content-Type': 'multipart/form-data' } }))
   },
   deleteContextDocument: (id: string) => api.delete(`/context-documents/${id}`),

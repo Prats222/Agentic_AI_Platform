@@ -27,7 +27,13 @@ public sealed class AgentConfiguration : IEntityTypeConfiguration<Agent>
             .IsRequired();
 
         builder.Property(agent => agent.Description)
-            .HasMaxLength(1000);
+            .HasMaxLength(8000);
+
+        builder.Property(agent => agent.Visibility)
+            .HasConversion<string>()
+            .HasMaxLength(20)
+            .HasDefaultValue(AgenticPlatform.Core.Enums.ArtifactVisibility.Realm)
+            .IsRequired();
 
         builder.Property(agent => agent.CreatedByDisplayName)
             .HasMaxLength(150);

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Security.Claims;
 using System.Text.Json;
 using AgenticPlatform.API.Realms;
+using AgenticPlatform.API.Extensions;
 using AgenticPlatform.Core.Common;
 using AgenticPlatform.Core.Constants;
 using AgenticPlatform.Core.DTOs.Arena;
@@ -120,6 +121,7 @@ public sealed class ArenaController : ControllerBase
 
         var agent = await _dbContext.Agents
             .AsNoTracking()
+            .VisibleTo(User.GetUserId(), User.IsAdmin())
             .FirstOrDefaultAsync(item => item.Id == request.AgentId && item.RealmId == realmId, cancellationToken);
 
         if (agent is null)
