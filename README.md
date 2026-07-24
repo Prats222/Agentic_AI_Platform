@@ -626,7 +626,9 @@ The project has now grown into a working full-stack agentic AI platform named **
   - Admin Realm is visible only to users with the Admin role.
   - Existing artifacts are stored in User Realm.
 - Admin panel:
-  - View all users.
+  - View total users and a local-timezone-aware "joined today" summary.
+  - Browse users with server-side pagination at 25, 50, or 100 rows per page.
+  - Seed 100 clearly labeled, passwordless demo accounts with Indian display names for UI demonstrations.
   - Inspect user roles and realm access.
   - Grant or remove Admin access.
   - Inspect whether each email is confirmed.

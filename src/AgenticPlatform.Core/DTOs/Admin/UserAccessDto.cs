@@ -11,4 +11,5 @@ public sealed class UserAccessDto
     public bool EmailConfirmed { get; set; }
     public DateTimeOffset? WelcomeGuideEmailSentAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
+    public bool IsDemoUser { get; set; }
 }

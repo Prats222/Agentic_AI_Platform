@@ -347,6 +347,17 @@ export type UserAccess = {
   emailConfirmed: boolean
   welcomeGuideEmailSentAt?: string
   createdAt: string
+  isDemoUser: boolean
+}
+
+export type AdminUsersPage = {
+  items: UserAccess[]
+  joinedToday: UserAccess[]
+  pageNumber: number
+  pageSize: number
+  totalCount: number
+  joinedTodayCount: number
+  totalPages: number
 }
 
 export type ArenaEntry = {

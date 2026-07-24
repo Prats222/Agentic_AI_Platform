@@ -4,6 +4,7 @@ import type {
   ArtifactPublishResult,
   ArtifactType,
   AISettings,
+  AdminUsersPage,
   ApiResponse,
   AuthResponse,
   ArenaChallenge,
@@ -90,7 +91,10 @@ export const apiClient = {
   refreshToken: (refreshToken: string) =>
     unwrap<AuthResponse>(api.post('/auth/refresh-token', { refreshToken })),
   getRealms: () => unwrap<Realm[]>(api.get('/realms', { params: noCacheParams() })),
-  getAdminUsers: () => unwrap<UserAccess[]>(api.get('/admin/users', { params: noCacheParams() })),
+  getAdminUsers: (pageNumber = 1, pageSize = 25, timezoneOffsetMinutes = 0) =>
+    unwrap<AdminUsersPage>(api.get('/admin/users/paged', {
+      params: { pageNumber, pageSize, timezoneOffsetMinutes, ...noCacheParams() },
+    })),
   updateUserAccess: (id: string, isAdmin: boolean) =>
     unwrap<UserAccess>(api.put(`/admin/users/${id}/access`, { isAdmin })),
   sendWelcomeGuide: (id: string) =>

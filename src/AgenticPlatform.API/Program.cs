@@ -10,6 +10,7 @@ using AgenticPlatform.Core.Settings;
 using AgenticPlatform.Core.Validators;
 using AgenticPlatform.Infrastructure.BackgroundServices;
 using AgenticPlatform.Infrastructure.Data;
+using AgenticPlatform.Infrastructure.Data.Seed;
 using AgenticPlatform.Infrastructure.HealthChecks;
 using AgenticPlatform.Infrastructure.Identity;
 using AgenticPlatform.Infrastructure.Repositories;
@@ -326,6 +327,22 @@ if (builder.Configuration.GetValue<bool>("Database:EnsureCreated"))
             await Task.Delay(delay);
         }
     }
+}
+
+try
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    var seedCount = builder.Configuration.GetValue<int>("DemoUsers:SeedCount");
+    var insertedCount = await DemoUserSeeder.SeedAsync(dbContext, seedCount);
+    Log.Information(
+        "Demo user seed completed. Requested {RequestedCount}; inserted {InsertedCount}.",
+        seedCount,
+        insertedCount);
+}
+catch (Exception exception)
+{
+    Log.Warning(exception, "Demo users could not be seeded. Application startup will continue.");
 }
 
 var forwardedHeadersOptions = new ForwardedHeadersOptions
