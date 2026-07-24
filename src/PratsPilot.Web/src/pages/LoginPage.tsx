@@ -1,8 +1,11 @@
-import { Alert, Box, Button, Paper, Stack, Tab, Tabs, TextField, Typography } from '@mui/material'
+import { Alert, Box, Button, IconButton, Paper, Stack, Tab, Tabs, TextField, Tooltip, Typography } from '@mui/material'
 import LoginIcon from '@mui/icons-material/Login'
 import RocketLaunchIcon from '@mui/icons-material/RocketLaunch'
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
+import GitHubIcon from '@mui/icons-material/GitHub'
+import LanguageIcon from '@mui/icons-material/Language'
+import LinkedInIcon from '@mui/icons-material/LinkedIn'
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Navigate } from 'react-router-dom'
@@ -162,11 +165,55 @@ export function LoginPage() {
               </Stack>
             </Box>
           </Box>
-          <Stack direction="row" spacing={1.2} sx={{ alignItems: 'center', color: 'secondary.main', mt: 'auto', pt: 3 }}>
-            <RocketLaunchIcon />
-            <Typography variant="body2" sx={{ fontWeight: 800 }}>
-              Connected to ASP.NET Core + PostgreSQL
-            </Typography>
+          <Stack
+            direction="row"
+            spacing={2}
+            sx={{ alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', color: 'secondary.main', mt: 'auto', pt: 3 }}
+          >
+            <Stack direction="row" spacing={1.2} sx={{ alignItems: 'center' }}>
+              <RocketLaunchIcon />
+              <Typography variant="body2" sx={{ fontWeight: 800 }}>
+                Connected to ASP.NET Core + PostgreSQL
+              </Typography>
+            </Stack>
+            <Stack direction="row" spacing={0.5} aria-label="Prateek Mishra links">
+              <Tooltip title="LinkedIn">
+                <IconButton
+                  component="a"
+                  href="https://www.linkedin.com/in/prateek-mishra-686945243/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Open Prateek Mishra's LinkedIn profile"
+                  color="inherit"
+                >
+                  <LinkedInIcon />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="GitHub">
+                <IconButton
+                  component="a"
+                  href="https://github.com/Prats222"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Open Prateek Mishra's GitHub profile"
+                  color="inherit"
+                >
+                  <GitHubIcon />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Portfolio">
+                <IconButton
+                  component="a"
+                  href="https://portfolio-prateek.vercel.app/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Open Prateek Mishra's portfolio"
+                  color="inherit"
+                >
+                  <LanguageIcon />
+                </IconButton>
+              </Tooltip>
+            </Stack>
           </Stack>
         </Box>
         <Box
