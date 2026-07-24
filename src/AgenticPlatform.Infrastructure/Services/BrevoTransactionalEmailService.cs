@@ -28,12 +28,12 @@ public sealed class BrevoTransactionalEmailService : ITransactionalEmailService
         var safeName = HtmlEncoder.Default.Encode(recipientName);
         var safeUrl = HtmlEncoder.Default.Encode(confirmationUrl);
         var html = BuildLayout(
-            "Confirm your PratsPilot account",
+            "Verify your PratsPilot email",
             $"""
              <p style="margin:0 0 18px">Hi {safeName},</p>
-             <p style="margin:0 0 22px;color:#c8cede">Confirm your email to activate your PratsPilot account and enter the User Realm.</p>
+             <p style="margin:0 0 22px;color:#c8cede">Verify this address so your PratsPilot profile shows a confirmed email. Your account is already ready to use.</p>
              <p style="margin:0 0 24px">
-               <a href="{safeUrl}" style="display:inline-block;padding:13px 22px;border-radius:8px;background:#7257ff;color:#ffffff;text-decoration:none;font-weight:700">Confirm email</a>
+               <a href="{safeUrl}" style="display:inline-block;padding:13px 22px;border-radius:8px;background:#7257ff;color:#ffffff;text-decoration:none;font-weight:700">Verify email</a>
              </p>
              <p style="margin:0;color:#8f99ad;font-size:13px">This secure link is tied to your account. If you did not register for PratsPilot, you can ignore this email.</p>
              """);
@@ -41,9 +41,9 @@ public sealed class BrevoTransactionalEmailService : ITransactionalEmailService
         return SendAsync(
             recipientEmail,
             recipientName,
-            "Confirm your PratsPilot account",
+            "Verify your PratsPilot email",
             html,
-            $"Hi {recipientName}, confirm your PratsPilot account: {confirmationUrl}",
+            $"Hi {recipientName}, verify your PratsPilot email: {confirmationUrl}. Your account is already ready to use.",
             cancellationToken);
     }
 

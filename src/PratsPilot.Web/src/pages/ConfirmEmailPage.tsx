@@ -9,7 +9,7 @@ import { Logo } from '../components/Logo'
 export function ConfirmEmailPage() {
   const [searchParams] = useSearchParams()
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
-  const [message, setMessage] = useState('Confirming your email...')
+  const [message, setMessage] = useState('Verifying your email...')
   const started = useRef(false)
 
   useEffect(() => {
@@ -27,7 +27,7 @@ export function ConfirmEmailPage() {
     apiClient.confirmEmail(userId, code)
       .then(() => {
         setStatus('success')
-        setMessage('Email confirmed. Your PratsPilot account is ready.')
+        setMessage('Email verified. Your PratsPilot profile is now confirmed.')
       })
       .catch((error: unknown) => {
         setStatus('error')
@@ -41,8 +41,8 @@ export function ConfirmEmailPage() {
         <Stack spacing={3} sx={{ alignItems: 'flex-start' }}>
           <Logo />
           <Box>
-            <Typography variant="overline" color="primary.main">Account activation</Typography>
-            <Typography variant="h4" sx={{ mt: 0.5 }}>Confirm your mission access</Typography>
+            <Typography variant="overline" color="primary.main">Account verification</Typography>
+            <Typography variant="h4" sx={{ mt: 0.5 }}>Verify your email</Typography>
           </Box>
           {status === 'loading' && (
             <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>

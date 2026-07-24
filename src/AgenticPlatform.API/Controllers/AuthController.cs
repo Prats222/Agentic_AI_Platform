@@ -119,12 +119,6 @@ public sealed class AuthController : ControllerBase
             return Unauthorized(ApiResponse<AuthResponseDto>.Fail("Invalid email or password."));
         }
 
-        if (!user.EmailConfirmed)
-        {
-            return Unauthorized(ApiResponse<AuthResponseDto>.Fail(
-                "Please confirm your email before signing in. You can resend the confirmation email from the login page."));
-        }
-
         var authResponse = await CreateAuthResponseAsync(user, cancellationToken);
         return Ok(ApiResponse<AuthResponseDto>.Ok(authResponse, "Login successful."));
     }
@@ -179,11 +173,12 @@ public sealed class AuthController : ControllerBase
         var registrationResult = new RegistrationResultDto
         {
             Email = user.Email ?? request.Email,
+            RequiresEmailConfirmation = false,
             ConfirmationEmailSent = emailSent
         };
         var message = emailSent
-            ? "Account created. Check your inbox to confirm your email."
-            : "Account created, but the confirmation email could not be delivered. Use Resend confirmation after email delivery is configured.";
+            ? "Account created. You can sign in now; a verification link was also sent to your inbox."
+            : "Account created. You can sign in now; email verification is currently unavailable.";
 
         return CreatedAtAction(
             nameof(SignUp),

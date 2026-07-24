@@ -50,8 +50,8 @@ export function LoginPage() {
       setMode('user')
       setSuccess(
         result.confirmationEmailSent
-          ? `Account created. We sent a confirmation link to ${result.email}. Confirm it before signing in.`
-          : `Account created for ${result.email}, but email delivery is temporarily unavailable. Try Resend confirmation shortly.`,
+          ? `Account created. You can sign in now. We also sent an optional verification link to ${result.email}.`
+          : `Account created for ${result.email}. You can sign in now; email verification is temporarily unavailable.`,
       )
     } catch (signUpError) {
       setError(getAuthErrorMessage(signUpError, 'Registration failed. Use a valid email and a strong password. Password must be at least 8 characters and include uppercase, lowercase, number, and special character.'))
@@ -71,7 +71,7 @@ export function LoginPage() {
     setSuccess('')
     try {
       await apiClient.resendConfirmation(email)
-      setSuccess('If that account is waiting for confirmation, a fresh link has been sent.')
+      setSuccess('If that account exists and is not verified, a fresh verification link has been sent.')
     } catch (resendError) {
       setError(getAuthErrorMessage(resendError, 'Could not resend the confirmation email. Please try again shortly.'))
     } finally {
@@ -85,15 +85,15 @@ export function LoginPage() {
         minHeight: '100vh',
         display: 'grid',
         placeItems: 'center',
-        p: 2,
+        p: { xs: 1.5, md: 3 },
       }}
     >
       <Paper
         sx={{
-          width: 'min(1120px, 100%)',
-          minHeight: 620,
+          width: 'min(1500px, 100%)',
+          minHeight: { xs: 'auto', md: 'calc(100vh - 48px)' },
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', md: '1.08fr 0.92fr' },
+          gridTemplateColumns: { xs: '1fr', md: '1.12fr 0.88fr' },
           overflow: 'hidden',
           background: 'linear-gradient(145deg, rgba(13,22,36,0.98), rgba(7,11,18,0.96))',
         }}
@@ -234,7 +234,7 @@ export function LoginPage() {
               onClick={handleResendConfirmation}
               disabled={resending}
             >
-              {resending ? 'Sending...' : 'Resend confirmation email'}
+              {resending ? 'Sending...' : 'Resend verification email'}
             </Button>
           )}
           <Alert severity="warning" variant="outlined">

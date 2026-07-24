@@ -614,7 +614,7 @@ The project has now grown into a working full-stack agentic AI platform named **
 - Axios API client.
 - Login page with Admin login, User login, and Register modes.
 - Normal user registration page.
-- One-time email confirmation for newly registered users.
+- Optional email verification for newly registered users without blocking sign-in.
 - Branded Brevo confirmation and welcome emails.
 - Resend-confirmation flow with anti-enumeration responses and a dedicated email rate limit.
 - Protected routes.
@@ -729,4 +729,4 @@ Email__FrontendBaseUrl=https://pratspilot.vercel.app
 Email__LinkedInPostUrl=https://www.linkedin.com/posts/prateek-mishra-686945243_agenticai-aiagents-generativeai-activity-7483723888552517632-8HIb
 ```
 
-Existing accounts remain confirmed. Newly registered accounts must follow the one-time confirmation link before login. The Admin user panel provides an explicit per-user action for delivering the welcome guide to existing confirmed users.
+Existing accounts remain confirmed. Newly registered accounts can sign in immediately and may follow the verification link to mark their email as confirmed. The Admin user panel provides an explicit per-user action for delivering the welcome guide to existing confirmed users.
