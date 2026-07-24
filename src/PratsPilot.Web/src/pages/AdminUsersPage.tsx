@@ -7,15 +7,18 @@ import {
   Stack,
   Switch,
   TablePagination,
+  TextField,
   Typography,
 } from '@mui/material'
+import InputAdornment from '@mui/material/InputAdornment'
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings'
 import MarkEmailReadIcon from '@mui/icons-material/MarkEmailRead'
 import PeopleAltIcon from '@mui/icons-material/PeopleAlt'
 import PersonAddAlt1Icon from '@mui/icons-material/PersonAddAlt1'
+import SearchIcon from '@mui/icons-material/Search'
 import SendIcon from '@mui/icons-material/Send'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { apiClient } from '../api/client'
 import type { UserAccess } from '../api/types'
@@ -26,10 +29,22 @@ export function AdminUsersPage() {
   const queryClient = useQueryClient()
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(25)
+  const [searchInput, setSearchInput] = useState('')
+  const [search, setSearch] = useState('')
   const timezoneOffsetMinutes = -new Date().getTimezoneOffset()
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setSearch(searchInput.trim())
+      setPage(0)
+    }, 350)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [searchInput])
+
   const users = useQuery({
-    queryKey: ['adminUsers', page, pageSize, timezoneOffsetMinutes],
-    queryFn: () => apiClient.getAdminUsers(page + 1, pageSize, timezoneOffsetMinutes),
+    queryKey: ['adminUsers', page, pageSize, timezoneOffsetMinutes, search],
+    queryFn: () => apiClient.getAdminUsers(page + 1, pageSize, timezoneOffsetMinutes, search),
   })
   const updateAccess = useMutation({
     mutationFn: ({ id, isAdmin }: { id: string; isAdmin: boolean }) => apiClient.updateUserAccess(id, isAdmin),
@@ -131,9 +146,28 @@ export function AdminUsersPage() {
           </Box>
         )}
       </Paper>
+      <TextField
+        fullWidth
+        value={searchInput}
+        onChange={(event) => setSearchInput(event.target.value)}
+        placeholder="Search users by name or email"
+        aria-label="Search users by name or email"
+        sx={{ mb: 2 }}
+        slotProps={{
+          input: {
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon />
+              </InputAdornment>
+            ),
+          },
+        }}
+      />
       <DataPanel<UserAccess>
         title="User Access Panel"
-        subtitle={`Showing ${users.data?.items.length ?? 0} of ${users.data?.totalCount ?? 0} users. Grant Admin role to unlock administrative controls.`}
+        subtitle={search
+          ? `Showing ${users.data?.items.length ?? 0} of ${users.data?.matchingCount ?? 0} matches for "${search}".`
+          : `Showing ${users.data?.items.length ?? 0} of ${users.data?.totalCount ?? 0} users. Grant Admin role to unlock administrative controls.`}
         rows={users.data?.items ?? []}
         loading={users.isLoading}
         columns={[
@@ -240,7 +274,7 @@ export function AdminUsersPage() {
       <Paper sx={{ mt: 2, overflow: 'hidden' }}>
         <TablePagination
           component="div"
-          count={users.data?.totalCount ?? 0}
+          count={users.data?.matchingCount ?? 0}
           page={page}
           onPageChange={(_, nextPage) => setPage(nextPage)}
           rowsPerPage={pageSize}

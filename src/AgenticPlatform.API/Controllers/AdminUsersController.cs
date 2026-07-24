@@ -62,6 +62,7 @@ public sealed class AdminUsersController : ControllerBase
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 25,
         [FromQuery] int timezoneOffsetMinutes = 0,
+        [FromQuery] string? search = null,
         CancellationToken cancellationToken = default)
     {
         pageNumber = Math.Max(1, pageNumber);
@@ -73,19 +74,26 @@ public sealed class AdminUsersController : ControllerBase
         var localDayStart = new DateTimeOffset(localNow.Date, offset).ToUniversalTime();
         var localDayEnd = localDayStart.AddDays(1);
 
-        var query = _dbContext.Users.AsNoTracking();
-        var totalCount = await query.CountAsync(cancellationToken);
-        var joinedTodayCount = await query.CountAsync(
+        var allUsersQuery = _dbContext.Users.AsNoTracking();
+        var totalCount = await allUsersQuery.CountAsync(cancellationToken);
+        var joinedTodayCount = await allUsersQuery.CountAsync(
             user => user.CreatedAt >= localDayStart && user.CreatedAt < localDayEnd,
             cancellationToken);
+        var normalizedSearch = search?.Trim().ToLowerInvariant();
+        var filteredQuery = string.IsNullOrWhiteSpace(normalizedSearch)
+            ? allUsersQuery
+            : allUsersQuery.Where(user =>
+                user.DisplayName.ToLower().Contains(normalizedSearch)
+                || (user.Email != null && user.Email.ToLower().Contains(normalizedSearch)));
+        var matchingCount = await filteredQuery.CountAsync(cancellationToken);
 
-        var users = await query
+        var users = await filteredQuery
             .OrderByDescending(user => user.CreatedAt)
             .ThenBy(user => user.Id)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(cancellationToken);
-        var joinedToday = await query
+        var joinedToday = await allUsersQuery
             .Where(user => user.CreatedAt >= localDayStart && user.CreatedAt < localDayEnd)
             .OrderByDescending(user => user.CreatedAt)
             .ThenBy(user => user.Id)
@@ -103,6 +111,7 @@ public sealed class AdminUsersController : ControllerBase
             PageNumber = pageNumber,
             PageSize = pageSize,
             TotalCount = totalCount,
+            MatchingCount = matchingCount,
             JoinedTodayCount = joinedTodayCount
         };
 

@@ -628,6 +628,7 @@ The project has now grown into a working full-stack agentic AI platform named **
 - Admin panel:
   - View total users and a local-timezone-aware "joined today" summary.
   - Browse users with server-side pagination at 25, 50, or 100 rows per page.
+  - Search the full user directory by display name or email.
   - Seed 100 clearly labeled, passwordless demo accounts with Indian display names for UI demonstrations.
   - Inspect user roles and realm access.
   - Grant or remove Admin access.

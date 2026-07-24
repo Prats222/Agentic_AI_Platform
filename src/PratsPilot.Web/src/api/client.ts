@@ -91,9 +91,9 @@ export const apiClient = {
   refreshToken: (refreshToken: string) =>
     unwrap<AuthResponse>(api.post('/auth/refresh-token', { refreshToken })),
   getRealms: () => unwrap<Realm[]>(api.get('/realms', { params: noCacheParams() })),
-  getAdminUsers: (pageNumber = 1, pageSize = 25, timezoneOffsetMinutes = 0) =>
+  getAdminUsers: (pageNumber = 1, pageSize = 25, timezoneOffsetMinutes = 0, search = '') =>
     unwrap<AdminUsersPage>(api.get('/admin/users/paged', {
-      params: { pageNumber, pageSize, timezoneOffsetMinutes, ...noCacheParams() },
+      params: { pageNumber, pageSize, timezoneOffsetMinutes, search, ...noCacheParams() },
     })),
   updateUserAccess: (id: string, isAdmin: boolean) =>
     unwrap<UserAccess>(api.put(`/admin/users/${id}/access`, { isAdmin })),

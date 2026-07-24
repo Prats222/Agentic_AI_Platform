@@ -356,6 +356,7 @@ export type AdminUsersPage = {
   pageNumber: number
   pageSize: number
   totalCount: number
+  matchingCount: number
   joinedTodayCount: number
   totalPages: number
 }
