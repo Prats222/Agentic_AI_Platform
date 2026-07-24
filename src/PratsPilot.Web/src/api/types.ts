@@ -29,6 +29,12 @@ export type SignUpRequest = {
   password: string
 }
 
+export type RegistrationResult = {
+  email: string
+  requiresEmailConfirmation: boolean
+  confirmationEmailSent: boolean
+}
+
 export type ArtifactVisibility = 'Private' | 'Realm'
 
 export type Agent = {
@@ -338,6 +344,8 @@ export type UserAccess = {
   roles: string[]
   canAccessUserRealm: boolean
   canAccessAdminRealm: boolean
+  emailConfirmed: boolean
+  welcomeGuideEmailSentAt?: string
   createdAt: string
 }
 

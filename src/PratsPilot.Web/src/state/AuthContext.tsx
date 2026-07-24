@@ -2,14 +2,14 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import axios from 'axios'
 import { api, apiClient, setAccessToken, setRealmId } from '../api/client'
-import type { AuthResponse } from '../api/types'
+import type { AuthResponse, RegistrationResult } from '../api/types'
 
 type AuthContextValue = {
   user?: AuthResponse
   token?: string
   isAuthenticated: boolean
   login: (email: string, password: string) => Promise<void>
-  signUp: (displayName: string, email: string, password: string) => Promise<void>
+  signUp: (displayName: string, email: string, password: string) => Promise<RegistrationResult>
   logout: () => void
 }
 
@@ -84,10 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(response)
       },
       signUp: async (displayName, email, password) => {
-        const response = await apiClient.signUp({ displayName, email, password })
-        setRealmId('11111111-1111-1111-1111-111111111111')
-        persistSession(response)
-        setUser(response)
+        return apiClient.signUp({ displayName, email, password })
       },
       logout: () => {
         clearSession(setUser)

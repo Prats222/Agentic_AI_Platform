@@ -8,5 +8,7 @@ public sealed class UserAccessDto
     public string[] Roles { get; set; } = [];
     public bool CanAccessUserRealm { get; set; } = true;
     public bool CanAccessAdminRealm { get; set; }
+    public bool EmailConfirmed { get; set; }
+    public DateTimeOffset? WelcomeGuideEmailSentAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
 }

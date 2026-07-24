@@ -22,6 +22,7 @@ import type {
   LLMModel,
   PagedResult,
   Realm,
+  RegistrationResult,
   SignUpRequest,
   StreamChatRequest,
   Tool,
@@ -81,13 +82,19 @@ async function unwrap<T>(request: Promise<{ data: ApiResponse<T> }>) {
 export const apiClient = {
   login: (email: string, password: string) =>
     unwrap<AuthResponse>(api.post('/auth/login', { email, password })),
-  signUp: (request: SignUpRequest) => unwrap<AuthResponse>(api.post('/auth/signup', request)),
+  signUp: (request: SignUpRequest) => unwrap<RegistrationResult>(api.post('/auth/signup', request)),
+  confirmEmail: (userId: string, code: string) =>
+    unwrap<Record<string, never>>(api.post('/auth/confirm-email', { userId, code })),
+  resendConfirmation: (email: string) =>
+    unwrap<Record<string, never>>(api.post('/auth/resend-confirmation', { email })),
   refreshToken: (refreshToken: string) =>
     unwrap<AuthResponse>(api.post('/auth/refresh-token', { refreshToken })),
   getRealms: () => unwrap<Realm[]>(api.get('/realms', { params: noCacheParams() })),
   getAdminUsers: () => unwrap<UserAccess[]>(api.get('/admin/users', { params: noCacheParams() })),
   updateUserAccess: (id: string, isAdmin: boolean) =>
     unwrap<UserAccess>(api.put(`/admin/users/${id}/access`, { isAdmin })),
+  sendWelcomeGuide: (id: string) =>
+    unwrap<UserAccess>(api.post(`/admin/users/${id}/welcome-guide`)),
   publishArtifact: (artifactType: ArtifactType, id: string) =>
     unwrap<ArtifactPublishResult>(api.post(`/admin/artifacts/${artifactType}/${id}/publish`)),
   getArenaChallenges: () => unwrap<ArenaChallenge[]>(api.get('/arena/challenges', { params: noCacheParams() })),

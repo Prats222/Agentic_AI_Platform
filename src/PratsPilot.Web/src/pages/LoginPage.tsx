@@ -8,6 +8,7 @@ import type { FormEvent } from 'react'
 import { Navigate } from 'react-router-dom'
 import axios from 'axios'
 import { Logo } from '../components/Logo'
+import { apiClient } from '../api/client'
 import { useAuth } from '../state/AuthContext'
 
 export function LoginPage() {
@@ -17,7 +18,9 @@ export function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
+  const [resending, setResending] = useState(false)
 
   if (isAuthenticated) {
     return <Navigate to="/" replace />
@@ -27,10 +30,11 @@ export function LoginPage() {
     event.preventDefault()
     setLoading(true)
     setError('')
+    setSuccess('')
     try {
       await login(email, password)
-    } catch {
-      setError('Login failed. Check that the API is running and the credentials are correct.')
+    } catch (loginError) {
+      setError(getAuthErrorMessage(loginError, 'Login failed. Check that the API is running and the credentials are correct.'))
     } finally {
       setLoading(false)
     }
@@ -40,12 +44,38 @@ export function LoginPage() {
     event.preventDefault()
     setLoading(true)
     setError('')
+    setSuccess('')
     try {
-      await signUp(displayName, email, password)
+      const result = await signUp(displayName, email, password)
+      setMode('user')
+      setSuccess(
+        result.confirmationEmailSent
+          ? `Account created. We sent a confirmation link to ${result.email}. Confirm it before signing in.`
+          : `Account created for ${result.email}, but email delivery is temporarily unavailable. Try Resend confirmation shortly.`,
+      )
     } catch (signUpError) {
       setError(getAuthErrorMessage(signUpError, 'Registration failed. Use a valid email and a strong password. Password must be at least 8 characters and include uppercase, lowercase, number, and special character.'))
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleResendConfirmation() {
+    if (!email.trim()) {
+      setError('Enter your email address first.')
+      return
+    }
+
+    setResending(true)
+    setError('')
+    setSuccess('')
+    try {
+      await apiClient.resendConfirmation(email)
+      setSuccess('If that account is waiting for confirmation, a fresh link has been sent.')
+    } catch (resendError) {
+      setError(getAuthErrorMessage(resendError, 'Could not resend the confirmation email. Please try again shortly.'))
+    } finally {
+      setResending(false)
     }
   }
 
@@ -159,6 +189,7 @@ export function LoginPage() {
             onChange={(_, value) => {
               setMode(value)
               setError('')
+              setSuccess('')
               if (value === 'admin' || value === 'user') {
                 setEmail('')
                 setPassword('')
@@ -192,9 +223,20 @@ export function LoginPage() {
             fullWidth
           />
           {error && <Alert severity="error">{error}</Alert>}
+          {success && <Alert severity="success">{success}</Alert>}
           <Button type="submit" size="large" variant="contained" startIcon={<LoginIcon />} disabled={loading}>
-            {loading ? 'Working...' : mode === 'signup' ? 'Create and enter' : 'Enter PratsPilot'}
+            {loading ? 'Working...' : mode === 'signup' ? 'Create account' : 'Enter PratsPilot'}
           </Button>
+          {mode === 'user' && (
+            <Button
+              type="button"
+              variant="text"
+              onClick={handleResendConfirmation}
+              disabled={resending}
+            >
+              {resending ? 'Sending...' : 'Resend confirmation email'}
+            </Button>
+          )}
           <Alert severity="warning" variant="outlined">
             Free hosting may take about 30 seconds to wake after inactivity. If the first sign-in attempt fails, wait briefly and try again.
           </Alert>

@@ -63,6 +63,7 @@ public static class ProductionSchemaUpgrader
             ALTER TABLE "Tools" ALTER COLUMN "EndpointUrl" TYPE character varying(65535);
             ALTER TABLE "Tools" ADD COLUMN IF NOT EXISTS "SecretJson" text NOT NULL DEFAULT '{{}}';
             ALTER TABLE "AISettings" ADD COLUMN IF NOT EXISTS "CerebrasApiKey" character varying(4000) NULL;
+            ALTER TABLE "AspNetUsers" ADD COLUMN IF NOT EXISTS "WelcomeGuideEmailSentAt" timestamp with time zone NULL;
 
             CREATE TABLE IF NOT EXISTS "ChatConversations" (
                 "Id" uuid NOT NULL,

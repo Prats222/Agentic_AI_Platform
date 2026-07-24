@@ -1,5 +1,7 @@
 import { Alert, Box, Button, Chip, Stack, Switch, Typography } from '@mui/material'
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings'
+import MarkEmailReadIcon from '@mui/icons-material/MarkEmailRead'
+import SendIcon from '@mui/icons-material/Send'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '../api/client'
 import type { UserAccess } from '../api/types'
@@ -15,12 +17,20 @@ export function AdminUsersPage() {
       queryClient.invalidateQueries({ queryKey: ['adminUsers'] })
     },
   })
+  const sendWelcomeGuide = useMutation({
+    mutationFn: (id: string) => apiClient.sendWelcomeGuide(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['adminUsers'] })
+    },
+  })
 
   return (
     <Box>
       <SectionHeader eyebrow="Admin" title="Users, roles, and realm access" />
       {updateAccess.isSuccess && <Alert severity="success" sx={{ mb: 2 }}>User access updated.</Alert>}
       {updateAccess.isError && <Alert severity="error" sx={{ mb: 2 }}>Could not update user access.</Alert>}
+      {sendWelcomeGuide.isSuccess && <Alert severity="success" sx={{ mb: 2 }}>Welcome guide delivered.</Alert>}
+      {sendWelcomeGuide.isError && <Alert severity="error" sx={{ mb: 2 }}>Could not send the welcome guide. Check the Brevo sender and API key.</Alert>}
       <DataPanel<UserAccess>
         title="User Access Panel"
         subtitle="Grant Admin role to unlock Admin Realm and administrative controls."
@@ -57,6 +67,25 @@ export function AdminUsersPage() {
             ),
           },
           {
+            key: 'emailStatus',
+            label: 'Email',
+            render: (row) => (
+              <Stack spacing={0.6} sx={{ alignItems: 'flex-start' }}>
+                <Chip
+                  size="small"
+                  icon={row.emailConfirmed ? <MarkEmailReadIcon /> : undefined}
+                  label={row.emailConfirmed ? 'Confirmed' : 'Unconfirmed'}
+                  color={row.emailConfirmed ? 'success' : 'warning'}
+                />
+                {row.welcomeGuideEmailSentAt && (
+                  <Typography variant="caption" color="text.secondary">
+                    Guide sent {new Date(row.welcomeGuideEmailSentAt).toLocaleDateString()}
+                  </Typography>
+                )}
+              </Stack>
+            ),
+          },
+          {
             key: 'admin',
             label: 'Admin Access',
             render: (row) => {
@@ -79,6 +108,26 @@ export function AdminUsersPage() {
                 </Stack>
               )
             },
+          },
+          {
+            key: 'guide',
+            label: 'Welcome Guide',
+            render: (row) => (
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<SendIcon />}
+                disabled={!row.emailConfirmed || sendWelcomeGuide.isPending}
+                onClick={() => {
+                  const action = row.welcomeGuideEmailSentAt ? 'Resend' : 'Send'
+                  if (window.confirm(`${action} the PratsPilot welcome guide to ${row.email}?`)) {
+                    sendWelcomeGuide.mutate(row.id)
+                  }
+                }}
+              >
+                {row.welcomeGuideEmailSentAt ? 'Resend' : 'Send guide'}
+              </Button>
+            ),
           },
         ]}
       />

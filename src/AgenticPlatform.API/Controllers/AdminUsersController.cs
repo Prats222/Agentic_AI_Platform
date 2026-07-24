@@ -1,6 +1,7 @@
 using AgenticPlatform.Core.Common;
 using AgenticPlatform.Core.Constants;
 using AgenticPlatform.Core.DTOs.Admin;
+using AgenticPlatform.Core.Interfaces;
 using AgenticPlatform.Infrastructure.Identity;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
@@ -16,10 +17,17 @@ namespace AgenticPlatform.API.Controllers;
 public sealed class AdminUsersController : ControllerBase
 {
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly ITransactionalEmailService _emailService;
+    private readonly ILogger<AdminUsersController> _logger;
 
-    public AdminUsersController(UserManager<ApplicationUser> userManager)
+    public AdminUsersController(
+        UserManager<ApplicationUser> userManager,
+        ITransactionalEmailService emailService,
+        ILogger<AdminUsersController> logger)
     {
         _userManager = userManager;
+        _emailService = emailService;
+        _logger = logger;
     }
 
     [HttpGet]
@@ -72,6 +80,57 @@ public sealed class AdminUsersController : ControllerBase
         return Ok(ApiResponse<UserAccessDto>.Ok(Map(user, roles), "User access updated successfully."));
     }
 
+    [HttpPost("{id:guid}/welcome-guide")]
+    [ProducesResponseType(typeof(ApiResponse<UserAccessDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<UserAccessDto>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<UserAccessDto>), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<ApiResponse<UserAccessDto>>> SendWelcomeGuide(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        var user = await _userManager.FindByIdAsync(id.ToString());
+        if (user is null)
+        {
+            return NotFound(ApiResponse<UserAccessDto>.Fail("User was not found."));
+        }
+
+        if (!user.EmailConfirmed || string.IsNullOrWhiteSpace(user.Email))
+        {
+            return BadRequest(ApiResponse<UserAccessDto>.Fail(
+                "The welcome guide can only be sent to a confirmed email address."));
+        }
+
+        try
+        {
+            await _emailService.SendWelcomeGuideAsync(
+                user.Email,
+                user.DisplayName,
+                cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Could not send welcome guide to user {UserId}.", user.Id);
+            return StatusCode(
+                StatusCodes.Status502BadGateway,
+                ApiResponse<UserAccessDto>.Fail(
+                    "The email provider could not deliver the welcome guide. Check the Brevo configuration and sender verification."));
+        }
+
+        user.WelcomeGuideEmailSentAt = DateTimeOffset.UtcNow;
+        var updateResult = await _userManager.UpdateAsync(user);
+        if (!updateResult.Succeeded)
+        {
+            return BadRequest(ApiResponse<UserAccessDto>.Fail(
+                "The guide was delivered, but its delivery status could not be saved.",
+                updateResult.Errors.Select(error => error.Description).ToArray()));
+        }
+
+        var roles = await _userManager.GetRolesAsync(user);
+        return Ok(ApiResponse<UserAccessDto>.Ok(
+            Map(user, roles),
+            "Welcome guide sent successfully."));
+    }
+
     private static UserAccessDto Map(ApplicationUser user, IEnumerable<string> roles)
     {
         var roleArray = roles.ToArray();
@@ -83,6 +142,8 @@ public sealed class AdminUsersController : ControllerBase
             Roles = roleArray,
             CanAccessUserRealm = true,
             CanAccessAdminRealm = roleArray.Contains(ApplicationRoles.Admin),
+            EmailConfirmed = user.EmailConfirmed,
+            WelcomeGuideEmailSentAt = user.WelcomeGuideEmailSentAt,
             CreatedAt = user.CreatedAt
         };
     }

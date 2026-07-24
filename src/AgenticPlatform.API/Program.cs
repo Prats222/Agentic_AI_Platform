@@ -79,6 +79,11 @@ builder.Services
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 builder.Services.Configure<JwtSettings>(jwtSettings);
 builder.Services.Configure<ChatHistorySettings>(builder.Configuration.GetSection("ChatHistory"));
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Email"));
+builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
+{
+    options.TokenLifespan = TimeSpan.FromHours(24);
+});
 var signingKey = jwtSettings["Secret"]
     ?? throw new InvalidOperationException("JwtSettings:Secret is missing.");
 
@@ -147,6 +152,7 @@ builder.Services.AddScoped<IAISettingsService, AISettingsService>();
 builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddScoped<IArtifactPublishingService, ArtifactPublishingService>();
 builder.Services.AddScoped<IWebSearchService, WebSearchService>();
+builder.Services.AddScoped<ITransactionalEmailService, BrevoTransactionalEmailService>();
 builder.Services.AddScoped<ILLMProvider, GeminiProvider>();
 builder.Services.AddScoped<ILLMProvider, OpenRouterProvider>();
 builder.Services.AddScoped<ILLMProvider, GroqProvider>();
@@ -172,6 +178,11 @@ builder.Services.AddHttpClient("live-search", client =>
 builder.Services.AddHttpClient("llm", client =>
 {
     client.Timeout = TimeSpan.FromSeconds(120);
+});
+builder.Services.AddHttpClient("brevo-email", client =>
+{
+    client.BaseAddress = new Uri("https://api.brevo.com/v3/");
+    client.Timeout = TimeSpan.FromSeconds(20);
 });
 
 builder.Services
@@ -264,6 +275,20 @@ builder.Services.AddRateLimiter(options =>
                 Window = TimeSpan.FromSeconds(builder.Configuration.GetValue<int>("RateLimiting:WindowSeconds")),
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
                 QueueLimit = builder.Configuration.GetValue<int>("RateLimiting:QueueLimit")
+            });
+    });
+
+    options.AddPolicy("Email", httpContext =>
+    {
+        var partitionKey = httpContext.Connection.RemoteIpAddress?.ToString() ?? "anonymous";
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey,
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(10),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
             });
     });
 });

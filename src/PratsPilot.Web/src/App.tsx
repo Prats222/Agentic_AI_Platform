@@ -12,6 +12,7 @@ import { ContextLibraryPage } from './pages/ContextLibraryPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { ExecutionsPage } from './pages/ExecutionsPage'
 import { LoginPage } from './pages/LoginPage'
+import { ConfirmEmailPage } from './pages/ConfirmEmailPage'
 import { ToolsPage } from './pages/ToolsPage'
 import { WorkflowsPage } from './pages/WorkflowsPage'
 
@@ -19,6 +20,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/confirm-email" element={<ConfirmEmailPage />} />
       <Route
         path="/"
         element={

@@ -614,6 +614,9 @@ The project has now grown into a working full-stack agentic AI platform named **
 - Axios API client.
 - Login page with Admin login, User login, and Register modes.
 - Normal user registration page.
+- One-time email confirmation for newly registered users.
+- Branded Brevo confirmation and welcome emails.
+- Resend-confirmation flow with anti-enumeration responses and a dedicated email rate limit.
 - Protected routes.
 - JWT token handling.
 - Refresh token handling on expired access tokens.
@@ -626,6 +629,8 @@ The project has now grown into a working full-stack agentic AI platform named **
   - View all users.
   - Inspect user roles and realm access.
   - Grant or remove Admin access.
+  - Inspect whether each email is confirmed.
+  - Send or resend the PratsPilot welcome guide to one confirmed existing user at a time.
 - Arena page:
   - Create creator-vs-creator agent challenges.
   - Submit agents into a battle.
@@ -709,3 +714,19 @@ The planned zero-cost deployment path is documented in [DEPLOYMENT_RENDER_NEON_F
 - Context uploads: extracted text stored in PostgreSQL for the free deployment.
 - Python tools: Python 3 installed inside the backend Docker container.
 - LLMs: Gemini and Groq free-tier keys configured from the app.
+
+### Transactional Email
+
+PratsPilot sends account confirmation and welcome-guide emails through Brevo's HTTP API. Secrets stay on the backend and are never returned to the React client.
+
+Configure these Render environment variables:
+
+```text
+Email__ApiKey=<Brevo API key>
+Email__SenderEmail=<verified Brevo sender>
+Email__SenderName=PratsPilot
+Email__FrontendBaseUrl=https://pratspilot.vercel.app
+Email__LinkedInPostUrl=https://www.linkedin.com/posts/prateek-mishra-686945243_agenticai-aiagents-generativeai-activity-7483723888552517632-8HIb
+```
+
+Existing accounts remain confirmed. Newly registered accounts must follow the one-time confirmation link before login. The Admin user panel provides an explicit per-user action for delivering the welcome guide to existing confirmed users.
